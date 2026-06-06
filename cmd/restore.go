@@ -1,17 +1,16 @@
 package cmd
 
 import (
-	"archive/tar"
 	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
+	"github.com/golgeek/sb/internal/archive"
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/mholt/archiver/v4"
 	"github.com/pkg/errors"
 )
 
@@ -67,22 +66,18 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 		return
 	}
 
-	format := archiver.CompressedArchive{
-		Compression: archiver.Gz{},
-		Archival:    archiver.Tar{},
-	}
+	// Re-materialize every entry from the archive. The handler speaks only in
+	// terms of sb's ArchivedFile type, so this restore logic is independent of
+	// the underlying archiving library.
+	handler := func(af archive.ArchivedFile) error {
 
-	handler := func(ctx context.Context, f archiver.File) error {
-
-		stat := f.Sys().(*tar.Header)
-
-		if f.IsDir() {
-			err = os.MkdirAll(f.NameInArchive, f.Mode().Perm())
+		if af.IsDir {
+			err = os.MkdirAll(af.NameInArchive, af.Mode.Perm())
 			if err != nil {
 				return errors.Wrap(err, "unable to create directory")
 			}
 
-			err = os.Chown(f.NameInArchive, stat.Uid, stat.Gid)
+			err = os.Chown(af.NameInArchive, af.UID, af.GID)
 			if err != nil {
 				return errors.Wrap(err, "unable to chown directory")
 			}
@@ -90,12 +85,13 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 			return nil
 		}
 
-		src, err := f.Open()
+		src, err := af.Open()
 		if err != nil {
 			return errors.Wrap(err, "unable to open file for read")
 		}
+		defer src.Close()
 
-		dst, err := os.OpenFile(f.NameInArchive, os.O_RDWR|os.O_CREATE, f.Mode().Perm())
+		dst, err := os.OpenFile(af.NameInArchive, os.O_RDWR|os.O_CREATE, af.Mode.Perm())
 		if err != nil {
 			return errors.Wrap(err, "unable to open file for write")
 		}
@@ -106,7 +102,7 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 			return errors.Wrap(err, "unable to write file content")
 		}
 
-		err = os.Chown(f.NameInArchive, stat.Uid, stat.Gid)
+		err = os.Chown(af.NameInArchive, af.UID, af.GID)
 		if err != nil {
 			return errors.Wrap(err, "unable to chown file")
 		}
@@ -114,7 +110,7 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 		return nil
 	}
 
-	err = format.Extract(context.Background(), f, nil, handler)
+	err = archive.ExtractArchive(context.Background(), f, handler)
 	if err != nil {
 		err = errors.Wrap(err, "unable to restore backup file")
 		return
