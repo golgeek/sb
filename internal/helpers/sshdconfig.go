@@ -3,7 +3,6 @@ package helpers
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"runtime"
@@ -35,7 +34,7 @@ func ParseSSHDConfig(content io.Reader) (p *SSHDConfigParser, err error) {
 	p.params = make(map[string]string)
 
 	// Read content
-	contentRaw, err := ioutil.ReadAll(content)
+	contentRaw, err := io.ReadAll(content)
 	if err != nil {
 		return
 	}

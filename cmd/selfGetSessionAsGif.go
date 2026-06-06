@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"syscall"
@@ -106,7 +105,7 @@ func (c *SelfGetSessionAsGif) Execute(ct *commands.Context) (repl models.Replica
 		return
 	}
 
-	content, err := ioutil.ReadFile(outputFile)
+	content, err := os.ReadFile(outputFile)
 	if err != nil {
 		return
 	}

@@ -10,7 +10,6 @@ import (
 	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"os/user"
@@ -333,7 +332,7 @@ func WritePublicKey(publicKey, publicKeyFile, owner string) (err error) {
 
 func WriteSelfPrivateKey(privateKey, privateKeyFile, owner string) (err error) {
 
-	err = ioutil.WriteFile(privateKeyFile, []byte(privateKey+"\n"), 0600)
+	err = os.WriteFile(privateKeyFile, []byte(privateKey+"\n"), 0600)
 	if err != nil {
 		return
 	}
@@ -350,7 +349,7 @@ func WriteSelfPrivateKey(privateKey, privateKeyFile, owner string) (err error) {
 }
 
 func WriteSelfPublicKey(publicKey, publicKeyFile, owner string) (err error) {
-	err = ioutil.WriteFile(publicKeyFile, []byte(publicKey), 0644)
+	err = os.WriteFile(publicKeyFile, []byte(publicKey), 0644)
 	if err != nil {
 		return
 	}

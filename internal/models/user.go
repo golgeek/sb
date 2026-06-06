@@ -3,7 +3,6 @@ package models
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	osuser "os/user"
@@ -245,7 +244,7 @@ func (bu *User) DeletePubKey(keyType string, pk helpers.PublicKey) (err error) {
 		file.Close()
 
 		// Writing the new content to the file (WriteFile actually truncates, then writes)
-		ioutil.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644)
+		os.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644)
 
 	}
 
@@ -562,7 +561,7 @@ func (bu *User) RemoveTOTPSecret() (err error) {
 // SetTOTPSecret sets TOTP on the current account
 func (bu *User) SetTOTPSecret(secret string, emergencyCodes []string) error {
 	content := []byte(helpers.GetTOTPFile(secret, emergencyCodes))
-	err := ioutil.WriteFile(bu.GetTOTPFilepath(), content, 0600)
+	err := os.WriteFile(bu.GetTOTPFilepath(), content, 0600)
 	if err != nil {
 		return err
 	}
@@ -608,7 +607,7 @@ func (bu *User) getKeyFilePathes() (filepathes []string, err error) {
 
 	rootDir := fmt.Sprintf("%s/.ssh/", bu.User.HomeDir)
 
-	files, err := ioutil.ReadDir(rootDir)
+	files, err := os.ReadDir(rootDir)
 	if err != nil {
 		return
 	}
@@ -627,7 +626,7 @@ func (bu *User) getPubKeyFilePathes() (filepathes []string, err error) {
 
 	rootDir := fmt.Sprintf("%s/.ssh/", bu.User.HomeDir)
 
-	files, err := ioutil.ReadDir(rootDir)
+	files, err := os.ReadDir(rootDir)
 	if err != nil {
 		return
 	}

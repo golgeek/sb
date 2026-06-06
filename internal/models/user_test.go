@@ -2,7 +2,6 @@ package models
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	osuser "os/user"
 	"path/filepath"
@@ -168,7 +167,7 @@ func TestManageKeys(t *testing.T) {
 	}
 
 	// Start by overriding the authorized_keys file path
-	file, _ := ioutil.TempFile("/tmp", "")
+	file, _ := os.CreateTemp("/tmp", "")
 	user.OverrideAuthorizedKeysFilePath(file.Name())
 
 	// Add a new ingress key
