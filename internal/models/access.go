@@ -6,12 +6,40 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/golgeek/sb/internal/helpers"
+	"github.com/google/uuid"
 
 	"github.com/fatih/color"
 	"gorm.io/gorm"
 )
+
+// dnsResolver abstracts the DNS lookups performed while building an access so
+// the resolution path can be exercised hermetically in tests, without touching
+// the network. Production code uses systemResolver (the standard library's
+// global resolver); the test suite installs a deterministic, offline fake.
+type dnsResolver interface {
+	// LookupIP resolves a hostname to its IP addresses, like net.LookupIP.
+	LookupIP(host string) ([]net.IP, error)
+	// LookupAddr performs a reverse lookup, returning the names mapped to an
+	// address, like net.LookupAddr.
+	LookupAddr(addr string) ([]string, error)
+}
+
+// systemResolver is the production dnsResolver, backed by the standard library's
+// default resolver.
+type systemResolver struct{}
+
+func (systemResolver) LookupIP(host string) ([]net.IP, error)   { return net.LookupIP(host) }
+func (systemResolver) LookupAddr(addr string) ([]string, error) { return net.LookupAddr(addr) }
+
+// accessResolver is the dnsResolver used by BuildSBAccess. It defaults to the
+// system resolver and is the single seam tests override (in-package) to keep the
+// suite hermetic. This mirrors the standard library's own net.DefaultResolver
+// pattern: BuildSBAccess is a free function reached transitively from many call
+// sites (e.g. User/Group.AddAccess), so threading a resolver through every
+// signature would ripple across the security-relevant access model for no
+// production benefit. A package-level seam keeps that boundary untouched.
+var accessResolver dnsResolver = systemResolver{}
 
 // Access descibes the basic properties of this struct
 type Access struct {
@@ -96,7 +124,7 @@ func BuildSBAccess(host, user, port, alias string, strictHostCheck bool) (ba *Ac
 		typeGiven = "HOST"
 
 		// OK, maybe it's a host, we will try to resolve it
-		ips, err := net.LookupIP(host)
+		ips, err := accessResolver.LookupIP(host)
 		switch {
 		case err == nil:
 			for _, ip := range ips {
@@ -140,7 +168,7 @@ func BuildSBAccess(host, user, port, alias string, strictHostCheck bool) (ba *Ac
 		if strings.HasSuffix(hostIPNetstr, slashRange) {
 
 			// If we can't find it, we will store the IP as host
-			names, errRecord := net.LookupAddr(hostIP.String())
+			names, errRecord := accessResolver.LookupAddr(hostIP.String())
 			if errRecord != nil || len(names) == 0 {
 				// We won't throw an error here, it's just a nice to have
 				host = hostIP.String()
