@@ -1,4 +1,4 @@
-FROM golang:1.21-bookworm as builder
+FROM golang:1.26-bookworm as builder
 WORKDIR /app
 ADD . /app
 RUN go build -o sb
