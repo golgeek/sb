@@ -7,7 +7,6 @@ toolchain go1.26.4
 require (
 	cloud.google.com/go/pubsub v1.50.2
 	cloud.google.com/go/storage v1.62.3
-	github.com/ReneKroon/ttlcache v1.7.0
 	github.com/aws/aws-sdk-go v1.55.8
 	github.com/c-bata/go-prompt v0.2.6
 	github.com/fatih/color v1.19.0
@@ -16,6 +15,7 @@ require (
 	github.com/golgeek/ttyrec2gif v0.0.0-20220613232656-6c32732836a3
 	github.com/google/go-cmp v0.7.0
 	github.com/google/uuid v1.6.0
+	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/mholt/archives v0.1.5
 	github.com/pkg/errors v0.9.1
