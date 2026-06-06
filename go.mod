@@ -1,6 +1,8 @@
 module github.com/golgeek/sb
 
-go 1.21
+go 1.26
+
+toolchain go1.26.4
 
 require (
 	cloud.google.com/go/pubsub v1.36.1
