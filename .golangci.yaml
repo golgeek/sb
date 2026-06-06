@@ -1,11 +1,10 @@
 run:
-  deadline: 6m
+  timeout: 6m
 
 linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
     - gocritic
     - goimports
     - gosimple
@@ -13,13 +12,11 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - prealloc
 
 linters-settings:
