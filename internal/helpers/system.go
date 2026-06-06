@@ -398,8 +398,19 @@ func RemoveHostKey(username, knownHostsFilePath, hostkey string) (err error) {
 
 func GenerateNewEgressKey(algo string, size string, passphrase string, username string) (privateKey, publicKey, privateKeyFilePath, publicKeyFilePath, filesOwner string, err error) {
 
-	keyComment := fmt.Sprintf("%s@sb:%s:%d", username, GetRandomStrings(1, 5)[0], time.Now().Unix())
-	privateKeyFilePath = fmt.Sprintf("/home/%s/.ssh/id_%s_%s_private.%s_%d", username, algo, size, GetRandomStrings(1, 5)[0], time.Now().Unix())
+	// Two short random suffixes keep the key comment and the on-disk key
+	// filename unique. They are not secrets, but they share the now
+	// cryptographically secure generator, which can fail to read the system
+	// entropy source; if it does we abort rather than build paths from an empty
+	// or weak suffix.
+	suffixes, err := GetRandomStrings(2, 5)
+	if err != nil {
+		err = errors.Wrap(err, "Unable to generate random key suffixes")
+		return
+	}
+
+	keyComment := fmt.Sprintf("%s@sb:%s:%d", username, suffixes[0], time.Now().Unix())
+	privateKeyFilePath = fmt.Sprintf("/home/%s/.ssh/id_%s_%s_private.%s_%d", username, algo, size, suffixes[1], time.Now().Unix())
 	publicKeyFilePath = fmt.Sprintf("%s.pub", privateKeyFilePath)
 	filesOwner = username
 

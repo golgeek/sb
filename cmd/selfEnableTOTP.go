@@ -53,8 +53,14 @@ func (c *SelfEnableTOTP) Execute(ct *commands.Context) (repl models.ReplicationD
 		return
 	}
 
-	// Generate the random emergency codes
-	randomCodes := helpers.GetRandomStrings(5, 8)
+	// Generate the random emergency codes from a cryptographically secure
+	// source. These codes bypass TOTP, so if the secure RNG fails we must abort
+	// rather than enable 2FA with predictable or empty recovery codes.
+	randomCodes, err := helpers.GetRandomStrings(5, 8)
+	if err != nil {
+		err = fmt.Errorf("failed to generate TOTP emergency codes: %w", err)
+		return
+	}
 
 	// Generate the TOTP secret
 	key, err := totp.Generate(totp.GenerateOpts{

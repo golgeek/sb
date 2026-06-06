@@ -8,10 +8,9 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
+	"math/big"
 	"os"
 	"strings"
-	"time"
 )
 
 // Helper describes the basic properties of a sb Helper type
@@ -347,22 +346,61 @@ func ParseCommandLine(cmd string) ([]string, error) {
 	return args, nil
 }
 
-// GetRandomStrings returns x random strings of y characters
-func GetRandomStrings(quantity int, length int) (rdm []string) {
+// GetRandomStrings returns `quantity` random strings, each `length` decimal
+// digits long, drawn from a cryptographically secure random source
+// (crypto/rand).
+//
+// This generator is security-sensitive: it produces the TOTP emergency/recovery
+// "scratch" codes written to each user's ~/.google_authenticator file (see
+// cmd/selfEnableTOTP.go and cmd/selfGenerateTOTPCodes.go). Those codes bypass
+// the TOTP second factor, so they must be unpredictable. A previous version used
+// math/rand seeded with time.Now().UnixNano(), which made the codes recoverable
+// by an attacker able to approximate the generation time; crypto/rand removes
+// that weakness entirely.
+//
+// The alphabet is deliberately restricted to decimal digits and the length is
+// left to the caller because pam_google_authenticator validates scratch codes as
+// plaintext 8-digit decimal numbers. Widening the alphabet (e.g. base32),
+// changing the length, or hashing the stored codes would make the PAM module
+// reject them and silently break 2FA recovery, so those hardenings are not
+// applied here.
+//
+// It returns an error if the system's secure random source cannot be read.
+// Callers MUST fail closed on that error and never fall back to a weaker source
+// or emit empty/partial codes.
+func GetRandomStrings(quantity int, length int) (rdm []string, err error) {
+	return getRandomStrings(cryptorand.Reader, quantity, length)
+}
 
-	rand.Seed(time.Now().UnixNano())
-	letterRunes := []rune("0123456789")
+// getRandomStrings is the testable core of GetRandomStrings. It reads its
+// randomness from the provided reader so unit tests can inject a deterministic
+// or deliberately failing source instead of the process-wide
+// crypto/rand.Reader. Production callers go through GetRandomStrings, which wires
+// in crypto/rand.Reader.
+func getRandomStrings(reader io.Reader, quantity int, length int) (rdm []string, err error) {
+
+	const digits = "0123456789"
+
+	rdm = make([]string, 0, quantity)
 
 	for i := 0; i < quantity; i++ {
 
-		b := make([]rune, length)
+		b := make([]byte, length)
 		for j := range b {
-			b[j] = letterRunes[rand.Intn(len(letterRunes))]
+			// cryptorand.Int returns a uniformly distributed value in
+			// [0, len(digits)) with no modulo bias, reading entropy from
+			// `reader`. Any read failure is propagated so the caller can fail
+			// closed rather than emit a predictable or truncated code.
+			n, ierr := cryptorand.Int(reader, big.NewInt(int64(len(digits))))
+			if ierr != nil {
+				return nil, fmt.Errorf("reading from secure random source: %w", ierr)
+			}
+			b[j] = digits[n.Int64()]
 		}
 		rdm = append(rdm, string(b))
 	}
 
-	return
+	return rdm, nil
 }
 
 func GetHostname() (hostname string, err error) {

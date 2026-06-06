@@ -47,7 +47,14 @@ func (c *SelfGenerateTOTPCodes) Execute(ct *commands.Context) (repl models.Repli
 
 	_, currentSecret, _ := ct.User.GetTOTP()
 
-	random := helpers.GetRandomStrings(5, 8)
+	// Generate fresh emergency codes from a cryptographically secure source.
+	// These codes bypass TOTP, so a secure-RNG failure must abort rather than
+	// overwrite the user's recovery codes with predictable or empty ones.
+	random, err := helpers.GetRandomStrings(5, 8)
+	if err != nil {
+		err = fmt.Errorf("failed to generate TOTP emergency codes: %w", err)
+		return
+	}
 
 	repl = models.ReplicationData{
 		"account":      ct.User.User.Username,
