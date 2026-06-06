@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/inpher/sb/internal/types"
+	"github.com/golgeek/sb/internal/types"
 	"github.com/spf13/viper"
 )
 

@@ -6,10 +6,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/inpher/sb/internal/commands"
-	"github.com/inpher/sb/internal/config"
-	"github.com/inpher/sb/internal/helpers"
-	"github.com/inpher/sb/internal/models"
+	"github.com/golgeek/sb/internal/commands"
+	"github.com/golgeek/sb/internal/config"
+	"github.com/golgeek/sb/internal/helpers"
+	"github.com/golgeek/sb/internal/models"
 	"github.com/mholt/archiver/v4"
 	"github.com/pkg/errors"
 )

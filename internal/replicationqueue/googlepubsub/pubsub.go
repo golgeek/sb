@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/inpher/sb/internal/models"
+	"github.com/golgeek/sb/internal/models"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )

@@ -1,4 +1,4 @@
-module github.com/inpher/sb
+module github.com/golgeek/sb
 
 go 1.21
 

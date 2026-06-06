@@ -7,12 +7,12 @@ import (
 	"time"
 
 	"github.com/ReneKroon/ttlcache"
-	"github.com/inpher/sb/internal/commands"
-	"github.com/inpher/sb/internal/config"
-	"github.com/inpher/sb/internal/helpers"
-	"github.com/inpher/sb/internal/models"
-	"github.com/inpher/sb/internal/replicationqueue"
-	"github.com/inpher/sb/internal/types"
+	"github.com/golgeek/sb/internal/commands"
+	"github.com/golgeek/sb/internal/config"
+	"github.com/golgeek/sb/internal/helpers"
+	"github.com/golgeek/sb/internal/models"
+	"github.com/golgeek/sb/internal/replicationqueue"
+	"github.com/golgeek/sb/internal/types"
 )
 
 // CreateAccount describes the command

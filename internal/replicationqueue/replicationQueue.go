@@ -3,9 +3,9 @@ package replicationqueue
 import (
 	"fmt"
 
-	"github.com/inpher/sb/internal/models"
-	"github.com/inpher/sb/internal/replicationqueue/googlepubsub"
-	"github.com/inpher/sb/internal/types"
+	"github.com/golgeek/sb/internal/models"
+	"github.com/golgeek/sb/internal/replicationqueue/googlepubsub"
+	"github.com/golgeek/sb/internal/types"
 	"github.com/pkg/errors"
 )
 

@@ -3,9 +3,9 @@ package storage
 import (
 	"fmt"
 
-	"github.com/inpher/sb/internal/storage/gcs"
-	"github.com/inpher/sb/internal/storage/s3"
-	"github.com/inpher/sb/internal/types"
+	"github.com/golgeek/sb/internal/storage/gcs"
+	"github.com/golgeek/sb/internal/storage/s3"
+	"github.com/golgeek/sb/internal/types"
 	"github.com/pkg/errors"
 )
 

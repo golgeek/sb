@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/inpher/sb/internal/helpers"
+	"github.com/golgeek/sb/internal/helpers"
 
 	"github.com/fatih/color"
 	"gorm.io/gorm"
