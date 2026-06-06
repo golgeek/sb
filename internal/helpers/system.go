@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/golgeek/sb/internal/config"
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -404,7 +403,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 	// or weak suffix.
 	suffixes, err := GetRandomStrings(2, 5)
 	if err != nil {
-		err = errors.Wrap(err, "Unable to generate random key suffixes")
+		err = fmt.Errorf("Unable to generate random key suffixes: %w", err)
 		return
 	}
 
@@ -426,7 +425,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 		var pkrsa *rsa.PrivateKey
 		pkrsa, err = rsa.GenerateKey(rand.Reader, sizeInt)
 		if err != nil {
-			err = errors.Wrap(err, "Unable to generate rsa key")
+			err = fmt.Errorf("Unable to generate rsa key: %w", err)
 			return
 		}
 		pk = pkrsa
@@ -447,7 +446,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 
 		pkecdsa, err = ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
 		if err != nil {
-			err = errors.Wrap(err, "Unable to generate ecdsa key")
+			err = fmt.Errorf("Unable to generate ecdsa key: %w", err)
 			return
 		}
 
@@ -457,14 +456,14 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 	case "ed25519":
 		pubk, pk, err = ed25519.GenerateKey(rand.Reader)
 		if err != nil {
-			err = errors.Wrap(err, "Unable to generate ed25519 key")
+			err = fmt.Errorf("Unable to generate ed25519 key: %w", err)
 			return
 		}
 	}
 
 	sshPublicKey, err := ssh.NewPublicKey(pubk)
 	if err != nil {
-		err = errors.Wrap(err, "Unable to derive publickey from privatekey")
+		err = fmt.Errorf("Unable to derive publickey from privatekey: %w", err)
 		return
 	}
 

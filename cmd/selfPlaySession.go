@@ -10,7 +10,6 @@ import (
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/storage"
-	"github.com/pkg/errors"
 	"maze.io/x/ttyrec"
 )
 
@@ -73,7 +72,7 @@ func (c *SelfPlaySession) Execute(ct *commands.Context) (repl models.Replication
 
 	r, err := os.Open(localFilepath)
 	if err != nil {
-		err = errors.Wrap(err, "file not found")
+		err = fmt.Errorf("file not found: %w", err)
 		return
 	}
 
@@ -84,7 +83,7 @@ func (c *SelfPlaySession) Execute(ct *commands.Context) (repl models.Replication
 	var previous *ttyrec.Frame
 	for frame := range frames {
 		if _, errFrame := os.Stdout.Write(frame.Data); err != nil {
-			err = errors.Wrap(errFrame, "error writing frame")
+			err = fmt.Errorf("error writing frame: %w", errFrame)
 			return
 		}
 		if previous != nil {

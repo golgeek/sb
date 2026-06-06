@@ -11,7 +11,6 @@ import (
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/storage"
-	"github.com/pkg/errors"
 
 	"github.com/golgeek/ttyrec2gif"
 	"golang.org/x/term"
@@ -101,7 +100,7 @@ func (c *SelfGetSessionAsGif) Execute(ct *commands.Context) (repl models.Replica
 	generator.NoLoop = !repeat
 	err = generator.Generate(localFilepath, outputFile)
 	if err != nil {
-		err = errors.Wrap(err, "unable to generate GIF from TTYRec")
+		err = fmt.Errorf("unable to generate GIF from TTYRec: %w", err)
 		return
 	}
 

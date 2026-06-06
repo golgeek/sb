@@ -6,7 +6,6 @@ import (
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/replicationqueue/googlepubsub"
 	"github.com/golgeek/sb/internal/types"
-	"github.com/pkg/errors"
 )
 
 type ReplicationQueue interface {
@@ -29,7 +28,7 @@ func GetReplicationQueue(config *types.ReplicationQueueConfig, hostname string) 
 	}
 
 	if err != nil {
-		err = errors.Wrap(err, "error while initializing ttyrecsoffloading")
+		err = fmt.Errorf("error while initializing ttyrecsoffloading: %w", err)
 	}
 
 	return

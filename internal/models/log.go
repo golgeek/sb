@@ -11,7 +11,6 @@ import (
 
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
-	"github.com/pkg/errors"
 
 	"github.com/glebarez/sqlite" // Blank import
 	"github.com/google/uuid"
@@ -207,10 +206,10 @@ func (l *Log) insert(insert bool) (err error) {
 			if os.IsNotExist(errStat) {
 				errMkdir := os.MkdirAll(filepath.Dir(dbPath), 0755)
 				if errMkdir != nil {
-					return errors.Wrapf(errMkdir, "unable to create logs database path %s", dbPath)
+					return fmt.Errorf("unable to create logs database path %s: %w", dbPath, errMkdir)
 				}
 			} else {
-				return errors.Wrapf(errStat, "unable to stat logs database path %s", dbPath)
+				return fmt.Errorf("unable to stat logs database path %s: %w", dbPath, errStat)
 			}
 		}
 
@@ -238,7 +237,7 @@ func (l *Log) insert(insert bool) (err error) {
 			err = db.Save(l).Error
 		}
 		if err != nil {
-			return errors.Wrap(err, "unable to save entry to database")
+			return fmt.Errorf("unable to save entry to database: %w", err)
 		}
 
 	}

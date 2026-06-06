@@ -13,7 +13,6 @@ import (
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/pkg/errors"
 )
 
 // Setup describes the help command
@@ -263,12 +262,12 @@ func (c *Setup) _createSudoersFileForOwners() (err error) {
 
 	file, err := os.OpenFile(DefaultSudoersdOwnersFile, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return errors.Wrapf(err, "unable to open file %s", DefaultSudoersdOwnersFile)
+		return fmt.Errorf("unable to open file %s: %w", DefaultSudoersdOwnersFile, err)
 	}
 
 	_, err = file.WriteString(helpers.GetGroupSudoersTemplateOwners(config.GetBinaryPath(), config.GetSBUsername()))
 	if err != nil {
-		return errors.Wrapf(err, "unable to write to file %s", DefaultSudoersdOwnersFile)
+		return fmt.Errorf("unable to write to file %s: %w", DefaultSudoersdOwnersFile, err)
 	}
 
 	return
@@ -278,12 +277,12 @@ func (c *Setup) _createSystemdServiceFile() (err error) {
 
 	file, err := os.OpenFile(DefaultSystemdServiceFile, os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
-		return errors.Wrapf(err, "unable to open file %s", DefaultSystemdServiceFile)
+		return fmt.Errorf("unable to open file %s: %w", DefaultSystemdServiceFile, err)
 	}
 
 	_, err = file.WriteString(helpers.GetSystemdServiceFile(config.GetBinaryPath(), config.GetSBUserHome()))
 	if err != nil {
-		return errors.Wrapf(err, "unable to write file %s", DefaultSystemdServiceFile)
+		return fmt.Errorf("unable to write file %s: %w", DefaultSystemdServiceFile, err)
 	}
 
 	return

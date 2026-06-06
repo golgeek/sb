@@ -11,7 +11,6 @@ import (
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/pkg/errors"
 )
 
 type Backup struct{}
@@ -34,7 +33,7 @@ func init() {
 func (c *Backup) Checks(ct *commands.Context) (err error) {
 
 	if _, errStat := os.Stat(ct.FormattedArguments["backup-directory"]); err != nil && os.IsNotExist(err) {
-		return errors.Wrap(errStat, "backup-directory does not exist")
+		return fmt.Errorf("backup-directory does not exist: %w", errStat)
 	}
 
 	return
@@ -44,19 +43,19 @@ func (c *Backup) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 	hostname, err := helpers.GetHostname()
 	if err != nil {
-		err = errors.Wrap(err, "unable to get hostname from host")
+		err = fmt.Errorf("unable to get hostname from host: %w", err)
 		return
 	}
 
 	users, err := models.GetAllSBUsers()
 	if err != nil {
-		err = errors.Wrap(err, "unable to list all sb users")
+		err = fmt.Errorf("unable to list all sb users: %w", err)
 		return
 	}
 
 	groups, err := models.GetAllSBGroups()
 	if err != nil {
-		err = errors.Wrap(err, "unable to list all sb groups")
+		err = fmt.Errorf("unable to list all sb groups: %w", err)
 		return
 	}
 
@@ -91,14 +90,14 @@ func (c *Backup) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	// Encrypting it
 	err = helpers.EncryptFile(fmt.Sprintf("%s.tar.gz", filename), fmt.Sprintf("%s.bin", filename), config.GetEncryptionKey())
 	if err != nil {
-		err = errors.Wrap(err, "unable to encrypt the backup file")
+		err = fmt.Errorf("unable to encrypt the backup file: %w", err)
 		return
 	}
 
 	// Deleting the temporary un-encrypted backup file
 	err = os.Remove(fmt.Sprintf("%s.tar.gz", filename))
 	if err != nil {
-		err = errors.Wrap(err, "unable to remove the temporary un-encrypted backup file")
+		err = fmt.Errorf("unable to remove the temporary un-encrypted backup file: %w", err)
 		return
 	}
 
@@ -121,7 +120,7 @@ func (c *Backup) createArchive(filename string, pathsToArchive map[string]string
 	// Create the backup file
 	out, err := os.Create(filename)
 	if err != nil {
-		return errors.Wrap(err, "unable to create backup file on disk")
+		return fmt.Errorf("unable to create backup file on disk: %w", err)
 	}
 	defer out.Close()
 
@@ -129,7 +128,7 @@ func (c *Backup) createArchive(filename string, pathsToArchive map[string]string
 	// this command independent of the underlying archiving library.
 	err = archive.CreateArchive(context.Background(), out, pathsToArchive)
 	if err != nil {
-		return errors.Wrap(err, "unable to create archive file")
+		return fmt.Errorf("unable to create archive file: %w", err)
 	}
 
 	return nil

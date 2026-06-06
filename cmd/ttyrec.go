@@ -15,7 +15,6 @@ import (
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/storage"
-	"github.com/pkg/errors"
 	"maze.io/x/ttyrec"
 
 	"github.com/fatih/color"
@@ -98,13 +97,13 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	cmd.Stdin = os.Stdin
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		err = errors.Wrap(err, "unable to open stdout pipe")
+		err = fmt.Errorf("unable to open stdout pipe: %w", err)
 		return
 	}
 	defer stdout.Close()
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		err = errors.Wrap(err, "unable to open stderr pipe")
+		err = fmt.Errorf("unable to open stderr pipe: %w", err)
 		return
 	}
 	defer stderr.Close()
@@ -114,7 +113,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 		f, err := os.Create(filename)
 		if err != nil {
-			err = errors.Wrap(err, "unable to open ttyrec file")
+			err = fmt.Errorf("unable to open ttyrec file: %w", err)
 			return
 		}
 		defer f.Close()
@@ -123,7 +122,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 		written, err = io.Copy(e, r)
 		if err != nil {
-			err = errors.Wrap(err, "unable to write SSH session to ttyrec")
+			err = fmt.Errorf("unable to write SSH session to ttyrec: %w", err)
 			return
 		}
 
@@ -139,7 +138,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	// Start the command
 	err = cmd.Start()
 	if err != nil {
-		err = errors.Wrap(err, "unable to start command")
+		err = fmt.Errorf("unable to start command: %w", err)
 		return
 	}
 
@@ -150,7 +149,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 		var ok bool
 		cmdError, ok = err.(*exec.ExitError)
 		if !ok {
-			err = errors.Wrap(err, "unable to wait for command")
+			err = fmt.Errorf("unable to wait for command: %w", err)
 			return
 		}
 
@@ -160,7 +159,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	fmt.Printf("<< Exited shell: %s\n", cmd.ProcessState.String())
 
 	if cmd.ProcessState.ExitCode() > 0 {
-		cmdError = errors.Wrap(cmdError, "failed to execute command on distant host")
+		cmdError = fmt.Errorf("failed to execute command on distant host: %w", cmdError)
 	}
 
 	return

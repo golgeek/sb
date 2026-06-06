@@ -7,7 +7,6 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -65,12 +64,12 @@ func (rq *ReplicationQueuePubSub) PushToQueue(entry *models.Replication) (err er
 
 	entryStr, err := json.Marshal(entry)
 	if err != nil {
-		return errors.Wrap(err, "unable to json.Marshal entry")
+		return fmt.Errorf("unable to json.Marshal entry: %w", err)
 	}
 
 	_, err = rq.topic.Publish(ctx, &pubsub.Message{Data: entryStr}).Get(ctx)
 	if err != nil {
-		return errors.Wrap(err, "unable to publish entry to Google PubSub")
+		return fmt.Errorf("unable to publish entry to Google PubSub: %w", err)
 	}
 
 	return
@@ -107,7 +106,7 @@ func (rq *ReplicationQueuePubSub) getTopic(createIfNotExists bool) (topic *pubsu
 	topic = rq.client.Topic(rq.topicName)
 	exists, err := topic.Exists(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "unable to check if Google PubSub topic exists")
+		err = fmt.Errorf("unable to check if Google PubSub topic exists: %w", err)
 		return
 	}
 
@@ -119,7 +118,7 @@ func (rq *ReplicationQueuePubSub) getTopic(createIfNotExists bool) (topic *pubsu
 
 		topic, err = rq.client.CreateTopic(ctx, rq.topicName)
 		if err != nil {
-			err = errors.Wrap(err, "unable to create Google PubSub topic")
+			err = fmt.Errorf("unable to create Google PubSub topic: %w", err)
 			return
 		}
 	}
@@ -135,7 +134,7 @@ func (rq *ReplicationQueuePubSub) getSubscription(createIfNotExists bool) (subsc
 
 	exists, err := subscription.Exists(ctx)
 	if err != nil {
-		err = errors.Wrap(err, "unable to check if Google PubSub subscription exists")
+		err = fmt.Errorf("unable to check if Google PubSub subscription exists: %w", err)
 		return
 	}
 	if !exists {
@@ -150,7 +149,7 @@ func (rq *ReplicationQueuePubSub) getSubscription(createIfNotExists bool) (subsc
 			EnableMessageOrdering: true,
 		})
 		if err != nil {
-			err = errors.Wrap(err, "unable to create Google PubSub subscription")
+			err = fmt.Errorf("unable to create Google PubSub subscription: %w", err)
 			return
 		}
 	}

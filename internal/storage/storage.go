@@ -6,7 +6,6 @@ import (
 	"github.com/golgeek/sb/internal/storage/gcs"
 	"github.com/golgeek/sb/internal/storage/s3"
 	"github.com/golgeek/sb/internal/types"
-	"github.com/pkg/errors"
 )
 
 type Storage interface {
@@ -31,7 +30,7 @@ func GetStorage(config *types.TTYRecsOffloadingConfig) (rs Storage, err error) {
 	}
 
 	if err != nil {
-		err = errors.Wrap(err, "error while initializing ttyrecsoffloading")
+		err = fmt.Errorf("error while initializing ttyrecsoffloading: %w", err)
 	}
 
 	return
