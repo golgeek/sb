@@ -6,9 +6,9 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/inpher/sb/internal/commands"
-	"github.com/inpher/sb/internal/helpers"
-	"github.com/inpher/sb/internal/models"
+	"github.com/golgeek/sb/internal/commands"
+	"github.com/golgeek/sb/internal/helpers"
+	"github.com/golgeek/sb/internal/models"
 
 	"golang.org/x/crypto/ssh"
 )

@@ -2,15 +2,15 @@
 <img alt="SB logo" src="./docs/assets/logo.png"><br>
 <h1 align="center">S(sh) B(astion)</h1>
 <p align="center">
-  <img alt="Test status" src="https://github.com/inpher/sb/workflows/main-tests/badge.svg">
-  <a href="http://goreportcard.com/report/inpher/sb">
+  <img alt="Test status" src="https://github.com/golgeek/sb/workflows/main-tests/badge.svg">
+  <a href="http://goreportcard.com/report/golgeek/sb">
      <img alt="Go report" src="https://img.shields.io/badge/Go_report-A+-brightgreen.svg">
   </a>
   <a href="https://opensource.org/licenses/MIT">
     <img alt="License" src="https://img.shields.io/badge/license-MIT-brightgreen.svg">
   </a>
-  <a href="https://github.com/inpher/sb/releases/latest">
-    <img alt="Release" src="https://img.shields.io/github/release/inpher/sb.svg">
+  <a href="https://github.com/golgeek/sb/releases/latest">
+    <img alt="Release" src="https://img.shields.io/github/release/golgeek/sb.svg">
   </a>
 </p>
 
@@ -87,4 +87,4 @@ Administration documentation:
 
 # License
 
-Released under the [MIT License](https://github.com/inpher/sb/blob/master/LICENSE)
+Released under the [MIT License](https://github.com/golgeek/sb/blob/master/LICENSE)

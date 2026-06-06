@@ -1,8 +1,8 @@
 package commands
 
 import (
-	"github.com/inpher/sb/internal/helpers"
-	"github.com/inpher/sb/internal/models"
+	"github.com/golgeek/sb/internal/helpers"
+	"github.com/golgeek/sb/internal/models"
 )
 
 // Command descibes the required functions of a sb command interface

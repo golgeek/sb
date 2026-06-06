@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inpher/sb/internal/config"
+	"github.com/golgeek/sb/internal/config"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh"
 )
