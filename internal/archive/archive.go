@@ -22,7 +22,7 @@ import (
 	"io"
 	"io/fs"
 
-	"github.com/mholt/archiver/v4"
+	"github.com/mholt/archives"
 )
 
 // ArchivedFile is a library-agnostic view of a single entry encountered while
@@ -46,11 +46,14 @@ type ArchivedFile struct {
 }
 
 // compressedTarGz returns the gzip-compressed tar format descriptor used for
-// every sb backup, both when writing and when reading.
-func compressedTarGz() archiver.CompressedArchive {
-	return archiver.CompressedArchive{
-		Compression: archiver.Gz{},
-		Archival:    archiver.Tar{},
+// every sb backup, both when writing and when reading. CompressedArchive layers
+// a gzip Compression over a tar Archival/Extraction; both the Archival and
+// Extraction fields are set so the same descriptor can create and read archives.
+func compressedTarGz() archives.CompressedArchive {
+	return archives.CompressedArchive{
+		Compression: archives.Gz{},
+		Archival:    archives.Tar{},
+		Extraction:  archives.Tar{},
 	}
 }
 
@@ -67,7 +70,7 @@ func compressedTarGz() archiver.CompressedArchive {
 func CreateArchive(ctx context.Context, dst io.Writer, diskToArchiveName map[string]string) error {
 	// Enumerate the on-disk files into the archiver's file list, preserving the
 	// caller-provided disk-path -> archive-name mapping.
-	files, err := archiver.FilesFromDisk(&archiver.FromDiskOptions{}, diskToArchiveName)
+	files, err := archives.FilesFromDisk(ctx, &archives.FromDiskOptions{}, diskToArchiveName)
 	if err != nil {
 		return fmt.Errorf("unable to prepare files to archive: %w", err)
 	}
@@ -92,18 +95,23 @@ func ExtractArchive(ctx context.Context, src io.Reader, handler func(ArchivedFil
 	// handing it to the caller. This translation layer is the only place that is
 	// coupled to the archiving library, which is what makes the library
 	// swappable without touching callers or their tests.
-	err := compressedTarGz().Extract(ctx, src, nil, func(_ context.Context, f archiver.File) error {
+	err := compressedTarGz().Extract(ctx, src, func(_ context.Context, info archives.FileInfo) error {
 		af := ArchivedFile{
-			NameInArchive: f.NameInArchive,
-			Mode:          f.Mode(),
-			IsDir:         f.IsDir(),
-			Open:          f.Open,
+			NameInArchive: info.NameInArchive,
+			Mode:          info.Mode(),
+			IsDir:         info.IsDir(),
+			// archives' Open yields an fs.File, which satisfies io.ReadCloser
+			// (it has Read and Close); wrap it so ArchivedFile stays decoupled
+			// from the archiving library's return type.
+			Open: func() (io.ReadCloser, error) {
+				return info.Open()
+			},
 		}
 
 		// tar entries carry numeric ownership in their header; surface it so the
 		// restore path can re-apply the original uid/gid. Other underlying
 		// formats may not, in which case the ids stay at their zero value.
-		if hdr, ok := f.Sys().(*tar.Header); ok {
+		if hdr, ok := info.Header.(*tar.Header); ok {
 			af.UID = hdr.Uid
 			af.GID = hdr.Gid
 		}
