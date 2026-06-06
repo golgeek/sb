@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/golgeek/sb/internal/commands"
+	"github.com/golgeek/sb/internal/completer"
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
@@ -166,44 +166,48 @@ func (c *Interactive) promptExecutor(command string) {
 
 func (c *Interactive) promptCompleter(d prompt.Document) (s []prompt.Suggest) {
 
-	// No completion if no characters
-	if d.TextBeforeCursor() == "" {
-		return s
+	// The completion logic itself lives in the library-agnostic completer
+	// package; this method only adapts the prompt library's document to that
+	// package's inputs and its suggestions back to the library's type.
+	suggestions := completer.Suggest(
+		publicCommands(),
+		d.CurrentLine(),
+		d.TextBeforeCursor(),
+		d.GetWordBeforeCursor(),
+	)
+
+	for _, suggestion := range suggestions {
+		s = append(s, prompt.Suggest{Text: suggestion.Text, Description: suggestion.Description})
 	}
 
-	// Do we have a command typed ?
-	// We check if line begins with a known command and a space
+	return s
+}
+
+// publicCommands gathers the public commands from the registry into the
+// library-agnostic representation the completer package expects, resolving each
+// command's description and argument list from its factory.
+func publicCommands() []completer.Command {
+
+	var cmds []completer.Command
+
 	for commandName, commandFactory := range commands.GetCommands() {
-		if commands.IsAPublicCommand(commandName) && strings.HasPrefix(d.CurrentLine(), fmt.Sprintf("%s ", commandName)) {
-
-			// We have a known command
-			// We have to give the argument list to user
-			_, _, _, args := commandFactory()
-
-			for argName, arg := range args {
-				if !strings.Contains(d.CurrentLine(), fmt.Sprintf("--%s", argName)) {
-					argDesc := arg.Description
-					argDesc = strings.ReplaceAll(argDesc, "\t", " ")
-					argDesc = strings.ReplaceAll(argDesc, "\n", " ")
-					s = append(s, prompt.Suggest{Text: fmt.Sprintf("--%s", argName), Description: argDesc})
-				}
-			}
-
-			return prompt.FilterHasPrefix(s, d.GetWordBeforeCursor(), true)
+		if !commands.IsAPublicCommand(commandName) {
+			continue
 		}
+
+		_, _, helper, args := commandFactory()
+
+		var commandArgs []completer.Arg
+		for argName, arg := range args {
+			commandArgs = append(commandArgs, completer.Arg{Name: argName, Description: arg.Description})
+		}
+
+		cmds = append(cmds, completer.Command{
+			Name:        commandName,
+			Description: helper.Description,
+			Args:        commandArgs,
+		})
 	}
 
-	// Let's give the completion tu user
-	for commandName, commandFactory := range commands.GetCommands() {
-		if commands.IsAPublicCommand(commandName) && strings.HasPrefix(commandName, d.TextBeforeCursor()) {
-			_, _, helper, _ := commandFactory()
-			s = append(s, prompt.Suggest{Text: commandName, Description: helper.Description})
-		}
-	}
-
-	sort.Slice(s, func(i, j int) bool {
-		return s[i].Text < s[j].Text
-	})
-
-	return prompt.FilterHasPrefix(s, d.TextBeforeCursor(), true)
+	return cmds
 }
