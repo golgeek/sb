@@ -3,7 +3,6 @@ package models
 import (
 	"bufio"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -292,7 +291,7 @@ func (bg *Group) getKeyFilePathes() (filepathes []string, err error) {
 
 	rootDir := bg.getKeyFilesRootDir()
 
-	files, err := ioutil.ReadDir(rootDir)
+	files, err := os.ReadDir(rootDir)
 	if err != nil {
 		return
 	}
@@ -311,7 +310,7 @@ func (bg *Group) getPubKeyFilePathes() (filepathes []string, err error) {
 
 	rootDir := bg.getKeyFilesRootDir()
 
-	files, err := ioutil.ReadDir(rootDir)
+	files, err := os.ReadDir(rootDir)
 	if err != nil {
 		return
 	}

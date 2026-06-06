@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -179,7 +178,7 @@ func (c *Setup) _SetSSHDOptions() (err error) {
 func (c *Setup) _appendLineIfNotPresentAlready(file, line string) (err error) {
 
 	// Open file
-	f, err := ioutil.ReadFile(file)
+	f, err := os.ReadFile(file)
 	if err != nil {
 		return
 	}
