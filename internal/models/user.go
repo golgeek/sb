@@ -11,7 +11,6 @@ import (
 
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
-	"github.com/pkg/errors"
 
 	"github.com/fatih/color"
 	"golang.org/x/crypto/ssh"
@@ -568,11 +567,11 @@ func (bu *User) SetTOTPSecret(secret string, emergencyCodes []string) error {
 
 	uid, err := strconv.Atoi(bu.User.Uid)
 	if err != nil {
-		return errors.Wrap(err, "unable to convert user's UID to int")
+		return fmt.Errorf("unable to convert user's UID to int: %w", err)
 	}
 	gid, err := strconv.Atoi(bu.User.Gid)
 	if err != nil {
-		return errors.Wrap(err, "unable to convert user's GID to int")
+		return fmt.Errorf("unable to convert user's GID to int: %w", err)
 	}
 
 	return os.Chown(bu.GetTOTPFilepath(), uid, gid)

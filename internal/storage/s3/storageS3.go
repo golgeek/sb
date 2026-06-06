@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
@@ -58,7 +57,7 @@ func NewStorageS3(options *viper.Viper) (rs *StorageS3, err error) {
 
 	rs.sess, err = session.NewSession(config)
 	if err != nil {
-		err = errors.Wrap(err, "unable to open aws.Session")
+		err = fmt.Errorf("unable to open aws.Session: %w", err)
 		return
 	}
 
@@ -87,11 +86,11 @@ func (r *StorageS3) GetFromStorage(key, outputFilePath string) (err error) {
 		Key:    aws.String(filepath.Join(r.basePath, key)),
 	})
 	if err != nil {
-		return errors.Wrapf(err, "unable to download file %s from S3", filepath.Join(r.basePath, key))
+		return fmt.Errorf("unable to download file %s from S3: %w", filepath.Join(r.basePath, key), err)
 	}
 	err = file.Sync()
 	if err != nil {
-		return errors.Wrap(err, "unable to sync the output file after downloading from S3")
+		return fmt.Errorf("unable to sync the output file after downloading from S3: %w", err)
 	}
 
 	return
@@ -121,7 +120,7 @@ func (r *StorageS3) PushToStorage(key, inputFilePath string) (err error) {
 		Body:   file,
 	})
 	if err != nil {
-		return errors.Wrap(err, "unable to upload file to S3")
+		return fmt.Errorf("unable to upload file to S3: %w", err)
 	}
 
 	return

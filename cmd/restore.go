@@ -11,7 +11,6 @@ import (
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/pkg/errors"
 )
 
 type Restore struct{}
@@ -56,13 +55,13 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 
 	err = helpers.DecryptFile(binFilepath, tgzFilepath, ct.FormattedArguments["decryption-key"])
 	if err != nil {
-		err = errors.Wrap(err, "unable to decrypt the backup file")
+		err = fmt.Errorf("unable to decrypt the backup file: %w", err)
 		return
 	}
 
 	f, err := os.Open(tgzFilepath)
 	if err != nil {
-		err = errors.Wrap(err, "unable to open decrypted backup file")
+		err = fmt.Errorf("unable to open decrypted backup file: %w", err)
 		return
 	}
 
@@ -74,12 +73,12 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 		if af.IsDir {
 			err = os.MkdirAll(af.NameInArchive, af.Mode.Perm())
 			if err != nil {
-				return errors.Wrap(err, "unable to create directory")
+				return fmt.Errorf("unable to create directory: %w", err)
 			}
 
 			err = os.Chown(af.NameInArchive, af.UID, af.GID)
 			if err != nil {
-				return errors.Wrap(err, "unable to chown directory")
+				return fmt.Errorf("unable to chown directory: %w", err)
 			}
 
 			return nil
@@ -87,24 +86,24 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 
 		src, err := af.Open()
 		if err != nil {
-			return errors.Wrap(err, "unable to open file for read")
+			return fmt.Errorf("unable to open file for read: %w", err)
 		}
 		defer src.Close()
 
 		dst, err := os.OpenFile(af.NameInArchive, os.O_RDWR|os.O_CREATE, af.Mode.Perm())
 		if err != nil {
-			return errors.Wrap(err, "unable to open file for write")
+			return fmt.Errorf("unable to open file for write: %w", err)
 		}
 		defer dst.Close()
 
 		_, err = io.Copy(dst, src)
 		if err != nil {
-			return errors.Wrap(err, "unable to write file content")
+			return fmt.Errorf("unable to write file content: %w", err)
 		}
 
 		err = os.Chown(af.NameInArchive, af.UID, af.GID)
 		if err != nil {
-			return errors.Wrap(err, "unable to chown file")
+			return fmt.Errorf("unable to chown file: %w", err)
 		}
 
 		return nil
@@ -112,7 +111,7 @@ func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cm
 
 	err = archive.ExtractArchive(context.Background(), f, handler)
 	if err != nil {
-		err = errors.Wrap(err, "unable to restore backup file")
+		err = fmt.Errorf("unable to restore backup file: %w", err)
 		return
 	}
 

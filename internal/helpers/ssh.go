@@ -12,11 +12,11 @@ import (
 	"crypto/sha512"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
 
-	"github.com/pkg/errors"
 	"golang.org/x/crypto/blowfish"
 	"golang.org/x/crypto/ssh"
 )

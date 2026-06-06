@@ -18,7 +18,6 @@ require (
 	github.com/jellydator/ttlcache/v3 v3.4.0
 	github.com/mdp/qrterminal/v3 v3.2.1
 	github.com/mholt/archives v0.1.5
-	github.com/pkg/errors v0.9.1
 	github.com/pquerna/otp v1.5.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
