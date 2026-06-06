@@ -6,9 +6,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/ReneKroon/ttlcache"
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/config"
+	"github.com/golgeek/sb/internal/dedupcache"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/replicationqueue"
@@ -18,7 +18,7 @@ import (
 // CreateAccount describes the command
 type Daemon struct {
 	hostname   string
-	replicated *ttlcache.Cache
+	replicated *dedupcache.Cache
 }
 
 func init() {
@@ -65,8 +65,7 @@ func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 	// If replication is enabled, we start replicating other instances' actions
 	if replicationQueueConfig.Enabled {
-		c.replicated = ttlcache.NewCache()
-		c.replicated.SetTTL(5 * time.Minute)
+		c.replicated = dedupcache.New(5 * time.Minute)
 		go c.consumeReplicationEvents(rq)
 	}
 
@@ -90,14 +89,14 @@ func (c *Daemon) consumeReplicationEvents(rq replicationqueue.ReplicationQueue) 
 	return rq.ConsumeQueue(func(entry *models.Replication) (err error) {
 
 		fmt.Printf("New replication entry received: [instance:%s|type:%s|ID:%s]\n", entry.Instance, entry.Action, entry.UniqID)
-		if _, exists := c.replicated.Get(entry.UniqID); exists {
+		if c.replicated.Seen(entry.UniqID) {
 			fmt.Println("  -> this message was already replicated")
 			return
 		}
 
 		// If I sent this entry myself, I don't care about it
 		if entry.Instance == c.hostname {
-			c.replicated.Set(entry.UniqID, "ok")
+			c.replicated.Mark(entry.UniqID)
 			return
 		}
 
@@ -123,7 +122,7 @@ func (c *Daemon) consumeReplicationEvents(rq replicationqueue.ReplicationQueue) 
 				return
 			}
 
-			c.replicated.Set(entry.UniqID, "ok")
+			c.replicated.Mark(entry.UniqID)
 
 			return nil
 
@@ -141,7 +140,7 @@ func (c *Daemon) consumeReplicationEvents(rq replicationqueue.ReplicationQueue) 
 				return err
 			}
 
-			c.replicated.Set(entry.UniqID, "ok")
+			c.replicated.Mark(entry.UniqID)
 
 			return nil
 
