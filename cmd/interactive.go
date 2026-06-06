@@ -14,7 +14,8 @@ import (
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/types"
 
-	prompt "github.com/c-bata/go-prompt"
+	prompt "github.com/elk-language/go-prompt"
+	istrings "github.com/elk-language/go-prompt/strings"
 )
 
 // Interactive describes the interactive command
@@ -89,11 +90,13 @@ func (c *Interactive) Execute(ct *commands.Context) (repl models.ReplicationData
 	}
 
 	// Launch our prompt
-	p := prompt.New(c.promptExecutor, c.promptCompleter,
-		prompt.OptionTitle("sb prompt"),
-		prompt.OptionPrefix(c.promptPrefix()),
-		prompt.OptionPrefixTextColor(prompt.DarkBlue),
-		prompt.OptionMaxSuggestion(20),
+	p := prompt.New(
+		c.promptExecutor,
+		prompt.WithCompleter(c.promptCompleter),
+		prompt.WithTitle("sb prompt"),
+		prompt.WithPrefix(c.promptPrefix()),
+		prompt.WithPrefixTextColor(prompt.DarkBlue),
+		prompt.WithMaxSuggestion(20),
 	)
 
 	p.Run()
@@ -164,7 +167,7 @@ func (c *Interactive) promptExecutor(command string) {
 	log.Save()
 }
 
-func (c *Interactive) promptCompleter(d prompt.Document) (s []prompt.Suggest) {
+func (c *Interactive) promptCompleter(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {
 
 	// The completion logic itself lives in the library-agnostic completer
 	// package; this method only adapts the prompt library's document to that
@@ -176,11 +179,18 @@ func (c *Interactive) promptCompleter(d prompt.Document) (s []prompt.Suggest) {
 		d.GetWordBeforeCursor(),
 	)
 
+	var s []prompt.Suggest
 	for _, suggestion := range suggestions {
 		s = append(s, prompt.Suggest{Text: suggestion.Text, Description: suggestion.Description})
 	}
 
-	return s
+	// elk-language/go-prompt replaces the rune span [startChar, endChar) with
+	// the accepted suggestion. Mirror the previous library's behavior by
+	// replacing the word currently being typed immediately before the cursor.
+	endChar := d.CurrentRuneIndex()
+	startChar := endChar - istrings.RuneCountInString(d.GetWordBeforeCursor())
+
+	return s, startChar, endChar
 }
 
 // publicCommands gathers the public commands from the registry into the

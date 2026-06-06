@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/pubsub v1.50.2
 	cloud.google.com/go/storage v1.62.3
 	github.com/aws/aws-sdk-go v1.55.8
-	github.com/c-bata/go-prompt v0.2.6
+	github.com/elk-language/go-prompt v1.4.0
 	github.com/fatih/color v1.19.0
 	github.com/fzipp/gocyclo v0.6.0
 	github.com/glebarez/sqlite v1.11.0
@@ -91,6 +91,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/sorairolake/lzip-go v0.3.8 // indirect
 	github.com/spf13/afero v1.15.0 // indirect
@@ -113,6 +114,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.44.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	go4.org v0.0.0-20260112195520-a5071408f32f // indirect
+	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
 	golang.org/x/image v0.41.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
