@@ -9,11 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.21
+        go-version: '1.21'
     - name: Run tests
       run: go test ./...
 
@@ -21,11 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
-        go-version: 1.21
+        go-version: '1.21'
     - name: Run gocyclo
       run: go generate ./...
 
@@ -33,8 +33,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
     - name: Build the e2e tests stack
-      run: (cd demo && docker-compose up -d)
+      run: (cd demo && docker compose up -d)
     - name: e2e tests
       run: sleep 5; bash ./tests/e2e.sh
