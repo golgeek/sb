@@ -6,11 +6,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/golgeek/sb/internal/archive"
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/mholt/archiver/v4"
 	"github.com/pkg/errors"
 )
 
@@ -125,17 +125,9 @@ func (c *Backup) createArchive(filename string, pathsToArchive map[string]string
 	}
 	defer out.Close()
 
-	format := archiver.CompressedArchive{
-		Compression: archiver.Gz{},
-		Archival:    archiver.Tar{},
-	}
-	files, err := archiver.FilesFromDisk(&archiver.FromDiskOptions{}, pathsToArchive)
-	if err != nil {
-		return errors.Wrap(err, "unable to prepare files to archive")
-	}
-
-	// Create the archive
-	err = format.Archive(context.Background(), out, files)
+	// Delegate the actual gzip-tar archiving to the archive seam, which keeps
+	// this command independent of the underlying archiving library.
+	err = archive.CreateArchive(context.Background(), out, pathsToArchive)
 	if err != nil {
 		return errors.Wrap(err, "unable to create archive file")
 	}
