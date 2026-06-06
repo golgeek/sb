@@ -2,3 +2,7 @@
 /logs.db
 /replication.db
 .DS_Store
+
+# Claude Code: share the project skills, but keep machine-local settings
+# (permission grants, env overrides) out of version control.
+.claude/settings.local.json
