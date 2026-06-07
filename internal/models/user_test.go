@@ -450,19 +450,57 @@ func TestTOTP(t *testing.T) {
 	testSecret := "randomstring"
 	testEmergencyCodes := []string{"10", "11", "12", "13", "14"}
 
-	enabled, _, _ := user.GetTOTP()
+	enabled, _, _, err := user.GetTOTP()
+	require.NoError(t, err, "reading a missing TOTP file should not be an error")
 	require.Equal(t, false, enabled, "The TOTP for this user should be disabled")
 
 	user.SetTOTPSecret(testSecret, testEmergencyCodes)
 
-	enabled, secret, emergencyCodes := user.GetTOTP()
+	enabled, secret, emergencyCodes, err := user.GetTOTP()
+	require.NoError(t, err, "reading a well-formed TOTP file should not error")
 	require.Equal(t, true, enabled, "The TOTP for this user should be enabled")
 	require.Equal(t, testSecret, secret, "The secret value is unexpected")
 	require.Equal(t, testEmergencyCodes, emergencyCodes, "The emergency codes are unexpected")
 
-	err := user.RemoveTOTPSecret()
+	err = user.RemoveTOTPSecret()
 	require.NoError(t, err, "An unexpected error occurred when removing TOTP")
 
-	enabled, _, _ = user.GetTOTP()
+	enabled, _, _, err = user.GetTOTP()
+	require.NoError(t, err, "reading a removed TOTP file should not be an error")
 	require.Equal(t, false, enabled, "The TOTP for this user should be disabled")
+}
+
+// TestGetTOTPMalformedFile asserts that GetTOTP fails closed — returns an error
+// instead of panicking — when the .google_authenticator file exists but holds no
+// secret line. The google_authenticator format puts the shared secret on the
+// first line and option lines start with a double quote; a file made up of only
+// option lines (or an empty file) therefore has no secret. Before this change,
+// indexing the empty slice at lines[0] panicked, which on the per-command
+// startup path was a denial of service for the affected user.
+func TestGetTOTPMalformedFile(t *testing.T) {
+	tests := map[string]string{
+		"empty file":        "",
+		"only option lines": "\" RATE_LIMIT 3 30\n\" WINDOW_SIZE 17\n",
+		"trailing newlines": "\n\n",
+	}
+
+	for name, content := range tests {
+		t.Run(name, func(t *testing.T) {
+			// A throwaway home directory keeps the test hermetic — it never
+			// touches the shared test_assets fixtures.
+			home := t.TempDir()
+			user := &User{User: &osuser.User{HomeDir: home}}
+
+			err := os.WriteFile(filepath.Join(home, ".google_authenticator"), []byte(content), 0600)
+			require.NoError(t, err, "failed to write the malformed TOTP fixture")
+
+			require.NotPanics(t, func() {
+				enabled, secret, codes, totpErr := user.GetTOTP()
+				require.Error(t, totpErr, "a secret-less TOTP file must be reported as an error")
+				require.False(t, enabled, "a malformed TOTP file must not be reported as enabled")
+				require.Empty(t, secret, "no secret should be returned for a malformed file")
+				require.Empty(t, codes, "no emergency codes should be returned for a malformed file")
+			}, "GetTOTP must not panic on a malformed file")
+		})
+	}
 }

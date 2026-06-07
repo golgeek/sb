@@ -389,16 +389,31 @@ func (bu *User) GetSSHKeyPairs() (kp []*helpers.SSHKeyPair, err error) {
 	return
 }
 
-// GetTOTP returnds info about user's TOTP
-func (bu *User) GetTOTP() (enabled bool, secret string, emergencyPasswords []string) {
+// GetTOTP reports whether the calling user has TOTP (2FA) configured and, when
+// they do, returns the shared secret and the remaining emergency/scratch codes
+// read from their ~/.google_authenticator file.
+//
+// The enabled flag is true only when a well-formed file containing a secret line
+// is found. A missing file is the normal "TOTP not set up" case and is reported
+// as (false, "", nil, nil). Any other failure — the file cannot be read, or it
+// exists but is empty/truncated and carries no secret line — is returned as a
+// non-nil error so the caller can fail closed instead of acting on a missing
+// secret. Previously an empty or truncated file caused an index-out-of-range
+// panic at lines[0], which on the main.go startup path (run for every command
+// when replication is enabled) was a denial of service for the affected user.
+func (bu *User) GetTOTP() (enabled bool, secret string, emergencyPasswords []string, err error) {
 
 	file, err := os.Open(bu.GetTOTPFilepath())
 	if err != nil {
+		// A missing file simply means TOTP was never enabled; that is the normal
+		// case and not an error. Any other open error (e.g. permissions) is
+		// surfaced so the caller can decide how to handle it.
+		if os.IsNotExist(err) {
+			err = nil
+		}
 		return
 	}
 	defer file.Close()
-
-	enabled = true
 
 	lines := make([]string, 0)
 	scanner := bufio.NewScanner(file)
@@ -408,7 +423,21 @@ func (bu *User) GetTOTP() (enabled bool, secret string, emergencyPasswords []str
 			lines = append(lines, line)
 		}
 	}
+	if err = scanner.Err(); err != nil {
+		err = fmt.Errorf("unable to read TOTP file %s: %w", bu.GetTOTPFilepath(), err)
+		return
+	}
 
+	// The first non-option line is the shared secret; every line after it is an
+	// emergency/scratch code. A file with no secret line — or one whose first line
+	// is blank — is malformed: surface the corruption rather than panicking on
+	// lines[0] or returning an empty secret.
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) == "" {
+		err = fmt.Errorf("TOTP file %s is empty or malformed: no secret found", bu.GetTOTPFilepath())
+		return
+	}
+
+	enabled = true
 	secret = lines[0]
 	emergencyPasswords = lines[1:]
 
