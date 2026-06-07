@@ -1,7 +1,17 @@
-FROM golang:1.26-bookworm as builder
+FROM golang:1.26-bookworm AS builder
 WORKDIR /app
 ADD . /app
-RUN go build -o sb
+
+# Build metadata stamped into internal/config at link time, mirroring the
+# Makefile and goreleaser so the demo binary reports a real version instead of an
+# empty string. The args default to dev/docker for a plain `docker build`; the
+# compose file passes through real values when available.
+ARG VERSION=dev
+ARG COMMIT=docker
+RUN go build \
+    -trimpath \
+    -ldflags "-s -w -X github.com/golgeek/sb/internal/config.VERSION=${VERSION} -X github.com/golgeek/sb/internal/config.COMMIT=${COMMIT}" \
+    -o sb
 
 FROM debian:bookworm
 

@@ -1,0 +1,21 @@
+# Build-context excludes for the demo images (compose build context is the repo
+# root, so Docker reads this file from here). Keep the context limited to what
+# `go build` actually needs (module source + demo/assets), and drop the VCS
+# history, local build artifacts, runtime databases, and editor/tooling cruft so
+# the context stays small and image-layer caching is not invalidated by unrelated
+# local file churn.
+.git
+.github
+.claude
+.golangci.yaml
+.goreleaser.yml
+
+# Host build artifacts (see Makefile) — the image compiles its own binary.
+/bin/
+/sb
+
+# Local runtime state, never wanted in an image.
+*.db
+
+# OS / editor noise.
+.DS_Store
