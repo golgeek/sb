@@ -2,7 +2,7 @@
 <img alt="SB logo" src="./docs/assets/logo.png"><br>
 <h1 align="center">S(sh) B(astion)</h1>
 <p align="center">
-  <img alt="Test status" src="https://github.com/golgeek/sb/workflows/main-tests/badge.svg">
+  <img alt="Test status" src="https://github.com/golgeek/sb/actions/workflows/tests.yml/badge.svg?branch=main&event=push">
   <a href="http://goreportcard.com/report/golgeek/sb">
      <img alt="Go report" src="https://img.shields.io/badge/Go_report-A+-brightgreen.svg">
   </a>
