@@ -252,7 +252,9 @@ func (bu *User) DeletePubKey(keyType string, pk helpers.PublicKey) (err error) {
 		// failed write must be reported: silently ignoring it could leave the
 		// key we are revoking still present in authorized_keys, so it would stay
 		// accepted and the revocation would not take effect.
-		if err = os.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644); err != nil {
+		// authorized_keys holds public keys (not secret) and is read group-wide by
+		// the sb tooling, so the broader-than-0600 permission is intentional.
+		if err = os.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644); err != nil { //nolint:gosec // G306: authorized_keys, public keys read group-wide
 			return fmt.Errorf("unable to write %s while deleting key: %w", path, err)
 		}
 	}

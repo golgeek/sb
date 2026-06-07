@@ -319,8 +319,10 @@ func bcryptHash(out, shapass, shasalt []byte) {
 			c.Encrypt(out[i:i+8], out[i:i+8])
 		}
 	}
-	// Swap bytes due to different endianness.
+	// Swap bytes due to different endianness. This is a verbatim copy of
+	// x/crypto's bcrypt_pbkdf; out is always the fixed 32-byte buffer the caller
+	// allocates, so i+3 (max 31) is always in range.
 	for i := 0; i < 32; i += 4 {
-		out[i+3], out[i+2], out[i+1], out[i] = out[i], out[i+1], out[i+2], out[i+3]
+		out[i+3], out[i+2], out[i+1], out[i] = out[i], out[i+1], out[i+2], out[i+3] //nolint:gosec // G602: out is a fixed 32-byte buffer
 	}
 }

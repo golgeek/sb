@@ -389,7 +389,9 @@ func WriteSelfPrivateKey(privateKey, privateKeyFile, owner string) (err error) {
 }
 
 func WriteSelfPublicKey(publicKey, publicKeyFile, owner string) (err error) {
-	err = os.WriteFile(publicKeyFile, []byte(publicKey), 0644)
+	// A public key is not secret and follows the conventional world-readable 0644
+	// mode for .pub files, so the broader-than-0600 permission is intentional.
+	err = os.WriteFile(publicKeyFile, []byte(publicKey), 0644) //nolint:gosec // G306: public key file, intentionally world-readable
 	if err != nil {
 		return
 	}
