@@ -62,8 +62,12 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 		return
 	}
 
-	// We override the currently stored access (which might be an alias) with the final one
-	ct.Log.SetTargetAccess(access)
+	// We override the currently stored access (which might be an alias) with the
+	// final one. This is a best-effort audit write, so a failure is logged rather
+	// than aborting the connection the user is establishing.
+	if err := ct.Log.SetTargetAccess(access); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: unable to persist target access in audit log: %s\n", err)
+	}
 
 	// We will provide the ttyrec record path as a replication data for the post exec step
 	repl = models.ReplicationData{
@@ -108,25 +112,23 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	}
 	defer stderr.Close()
 
-	// Handle ttyrec to a file
-	go func(filename string, r io.Reader) (written int64, err error) {
+	// Handle ttyrec to a file. This runs in its own goroutine, so it cannot return
+	// an error to the caller; it logs any failure to stderr instead of dropping it
+	// silently, which previously hid a failed session recording.
+	go func(filename string, r io.Reader) {
 
 		f, err := os.Create(filename)
 		if err != nil {
-			err = fmt.Errorf("unable to open ttyrec file: %w", err)
+			fmt.Fprintf(os.Stderr, "ERROR: unable to open ttyrec file: %s\n", err)
 			return
 		}
 		defer f.Close()
 
 		e := ttyrec.NewEncoder(f)
 
-		written, err = io.Copy(e, r)
-		if err != nil {
-			err = fmt.Errorf("unable to write SSH session to ttyrec: %w", err)
-			return
+		if _, err := io.Copy(e, r); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: unable to write SSH session to ttyrec: %s\n", err)
 		}
-
-		return
 	}(
 		repl["ttyrec-record-path"],
 		io.MultiReader(

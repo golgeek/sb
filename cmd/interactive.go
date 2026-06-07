@@ -165,7 +165,10 @@ func (c *Interactive) promptExecutor(command string) {
 		fmt.Printf("Error while executing command: %s\n", err)
 	}
 	log.SessionEndDate = time.Now()
-	log.Save()
+	// Best-effort final audit write; report a failure rather than dropping it.
+	if err := log.Save(); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: unable to persist audit log: %s\n", err)
+	}
 }
 
 func (c *Interactive) promptCompleter(d prompt.Document) ([]prompt.Suggest, istrings.RuneNumber, istrings.RuneNumber) {

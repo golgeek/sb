@@ -110,7 +110,10 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 		fmt.Printf("Error: %s", err)
 		return
 	}
-	ct.Log.SetTargetAccess(access)
+	// Best-effort audit write; log a failure rather than aborting the transfer.
+	if err := ct.Log.SetTargetAccess(access); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: unable to persist target access in audit log: %s\n", err)
+	}
 
 	// Get ssh command path on the system
 	sshPath, err := exec.LookPath("ssh")

@@ -24,14 +24,14 @@ func TestNewLog(t *testing.T) {
 	log := NewLog("test", []string{logsDatabase}, []string{"test"})
 	require.IsType(t, &Log{}, log, "NewLog should return a Log{} object")
 
-	log.SetAllowed(true)
+	require.NoError(t, log.SetAllowed(true))
 	require.Equal(t, true, log.Allowed, "Allowed should be set to true after the SetAllowed() call")
 
-	log.SetCommand("selfAddAccess")
+	require.NoError(t, log.SetCommand("selfAddAccess"))
 	require.Equal(t, "selfAddAccess", log.Command, "Command should be set to selfAddAccess after the SetCommand() call")
 
 	ba, _ := BuildSBAccess("test.com", "root", "22022", "", false)
-	log.SetTargetAccess(ba)
+	require.NoError(t, log.SetTargetAccess(ba))
 	require.Equal(t, "test.com", log.HostTo, "HostTo should be set to test.com after the SetTargetAccess() call")
 	require.Equal(t, "22022", log.PortTo, "PortTo should be set to 22022 after the SetTargetAccess() call")
 	require.Equal(t, "root", log.UserTo, "UserTo should be set to root after the SetTargetAccess() call")
