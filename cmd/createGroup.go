@@ -55,6 +55,14 @@ func init() {
 // Checks checks whether or not the user can execute this method
 func (c *CreateGroup) Checks(ct *commands.Context) (err error) {
 
+	// Validate the requested group name up front so a malformed name is rejected
+	// with a clear message before any system change is attempted. The same
+	// validation is enforced again deeper in helpers.AddGroup as the fail-closed
+	// security boundary.
+	if err = helpers.ValidateSystemName(ct.FormattedArguments["name"]); err != nil {
+		return
+	}
+
 	// Check if the chosen group name is available
 	groups, err := models.GetAllSBGroups()
 	if err != nil {
