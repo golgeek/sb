@@ -7,6 +7,9 @@ services:
     build:
       context: ../
       dockerfile: demo/Dockerfiles/sb/Dockerfile
+      args:
+        VERSION: ${SB_VERSION:-dev}
+        COMMIT: ${SB_COMMIT:-docker}
     volumes:
       - ${PWD}/assets/configs/sb1/sb.yml:/etc/sb/sb.yml:ro
     ports:
@@ -22,6 +25,9 @@ services:
     build:
       context: ../
       dockerfile: demo/Dockerfiles/sb/Dockerfile
+      args:
+        VERSION: ${SB_VERSION:-dev}
+        COMMIT: ${SB_COMMIT:-docker}
     volumes:
       - ${PWD}/assets/configs/sb2/sb.yml:/etc/sb/sb.yml:ro
     ports:
