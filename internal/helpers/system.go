@@ -660,42 +660,61 @@ func runCommand(command string, arguments ...string) (err error) {
 	return
 }
 
-// runPipedCommand executes two piped system commands
+// runPipedCommands runs a chain of system commands, wiring each command's stdout
+// into the next command's stdin (the equivalent of "cmd0 | cmd1 | ... | cmdN").
+// The last command's output and stderr are captured so they can be reported if
+// the pipeline fails. It returns the first error encountered while wiring,
+// starting, running or waiting on any command.
 func runPipedCommands(commands ...[]string) (err error) {
 
-	var out bytes.Buffer
+	if len(commands) == 0 {
+		return fmt.Errorf("runPipedCommands called with no commands")
+	}
+
+	// Build every *exec.Cmd up front.
 	cmds := make([]*exec.Cmd, len(commands))
-
-	// Create the first command
-	cmds[0] = exec.Command(commands[0][0], commands[0][1:]...)
-
-	for i := 1; i < len(commands); i++ {
-		// Create the next commands and pipe stdin to the previous stdout
+	for i := range commands {
 		cmds[i] = exec.Command(commands[i][0], commands[i][1:]...)
-		cmds[i].Stdin, _ = cmds[i-1].StdoutPipe()
-		err = cmds[i].Start()
-		if err != nil {
-			fmt.Printf("Error while starting command %d: %s\n", i+1, err)
-			return
+	}
+
+	// Wire each command's stdout into the next command's stdin. StdoutPipe must
+	// be obtained before the producing command is started, and its error must not
+	// be ignored: a dropped pipe error here would otherwise surface later as a
+	// confusing "broken pipe" or a silently empty downstream input.
+	for i := 1; i < len(cmds); i++ {
+		stdout, errPipe := cmds[i-1].StdoutPipe()
+		if errPipe != nil {
+			return fmt.Errorf("unable to connect command %d output to command %d input: %w", i, i+1, errPipe)
+		}
+		cmds[i].Stdin = stdout
+	}
+
+	// Capture the last command's output and stderr for diagnostics. These must be
+	// set before the command is started (exec.Cmd reads them at Start), which the
+	// previous implementation got wrong by assigning Stdout after Start.
+	var out bytes.Buffer
+	last := cmds[len(cmds)-1]
+	last.Stdout = &out
+	last.Stderr = &out
+
+	// Start every downstream command so they are ready to consume their piped
+	// input before the first command begins producing it.
+	for i := 1; i < len(cmds); i++ {
+		if err = cmds[i].Start(); err != nil {
+			return fmt.Errorf("unable to start command %d (%s): %w", i+1, commands[i][0], err)
 		}
 	}
 
-	// Create the last command and pipe stdout to a bytes buffer
-	cmds[len(commands)-1].Stdout = &out
-
-	// Run the first command
-	err = cmds[0].Run()
-	if err != nil {
-		fmt.Printf("Error while running first command: %s\n", err)
-		return
+	// Run the first command to completion; this drives the whole pipeline.
+	if err = cmds[0].Run(); err != nil {
+		return fmt.Errorf("unable to run command 1 (%s): %w", commands[0][0], err)
 	}
 
-	// Wait for the last command
-	err = cmds[len(commands)-1].Wait()
-	if err != nil {
-		// If erverything didn't go as planned, displaying the command output
-		fmt.Printf("Error while waiting for last command: %s\nOutput: %s\n", err, out.String())
-		return
+	// Wait for each downstream command, in order, to finish.
+	for i := 1; i < len(cmds); i++ {
+		if err = cmds[i].Wait(); err != nil {
+			return fmt.Errorf("command %d (%s) failed: %w\nOutput: %s", i+1, commands[i][0], err, out.String())
+		}
 	}
 
 	return
