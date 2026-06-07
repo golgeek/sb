@@ -47,7 +47,12 @@ func (c *SelfEnableTOTP) Execute(ct *commands.Context) (repl models.ReplicationD
 
 	green := color.New(color.FgGreen).SprintFunc()
 
-	enabled, _, _ := ct.User.GetTOTP()
+	enabled, _, _, err := ct.User.GetTOTP()
+	if err != nil {
+		// Fail closed: if the current TOTP state cannot be read, do not risk
+		// overwriting an existing configuration with fresh secrets.
+		return
+	}
 	if enabled {
 		fmt.Printf("TOTP is already enabled on this account!")
 		return

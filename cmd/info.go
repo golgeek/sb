@@ -47,7 +47,9 @@ func (c *Info) Execute(ct *commands.Context) (repl models.ReplicationData, cmdEr
 	if err != nil {
 		return
 	}
-	totpEnabled, _, totpEmergency := ct.User.GetTOTP()
+	// TOTP state is informational here, so a read error is reported inline rather
+	// than aborting the whole info command.
+	totpEnabled, _, totpEmergency, totpErr := ct.User.GetTOTP()
 
 	green := color.New(color.FgGreen).SprintFunc()
 	red := color.New(color.FgRed).SprintFunc()
@@ -71,9 +73,12 @@ func (c *Info) Execute(ct *commands.Context) (repl models.ReplicationData, cmdEr
 		fmt.Printf("  -> as you're a member of the %s group, you have extra admin privileges\n", green("owners"))
 		fmt.Printf("  -> FYI, I'm running version %s on commit %s\n", green(config.VERSION), green(config.COMMIT))
 	}
-	if !totpEnabled {
+	switch {
+	case totpErr != nil:
+		fmt.Printf("  -> TOTP status is %s (your configuration file could not be read)\n", red("unavailable"))
+	case !totpEnabled:
 		fmt.Printf("  -> TOTP is %s on your account\n", red("disabled"))
-	} else {
+	default:
 		fmt.Printf("  -> TOTP is %s on your account\n", green("enabled"))
 		if len(totpEmergency) >= 3 {
 			fmt.Printf("  -> you have %s unused emergency codes, feel free to generate new ones if you wish\n", green(len(totpEmergency)))

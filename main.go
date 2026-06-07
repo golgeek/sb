@@ -29,10 +29,14 @@ func main() {
 	// If replication is enabled
 	if config.GetReplicationEnabled() {
 
-		totpEnabled, secret, totpEmergency := currentUser.GetTOTP()
+		totpEnabled, secret, totpEmergency, totpErr := currentUser.GetTOTP()
 
-		// And user has TOTP enabled
-		if totpEnabled {
+		// A corrupt or unreadable TOTP file must not abort every command this user
+		// runs: warn and skip the recovery-code replication sync rather than
+		// failing the whole invocation.
+		if totpErr != nil {
+			fmt.Printf("warning: unable to read TOTP state, skipping replication sync: %s\n", totpErr)
+		} else if totpEnabled {
 
 			// Maybe the user used a recovery code, and we need to sync it to the other instances
 			dbHandler, err := models.GetReplicationGormDB(config.GetReplicationDatabasePath())

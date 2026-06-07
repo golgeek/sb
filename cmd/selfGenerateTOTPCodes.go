@@ -33,8 +33,12 @@ func (c *SelfGenerateTOTPCodes) Checks(ct *commands.Context) error {
 		return fmt.Errorf("the server is not configured for TOTP")
 	}
 
-	// Check that TOTP is enabled for current account
-	enabled, _, _ := ct.User.GetTOTP()
+	// Check that TOTP is enabled for current account. Fail closed if the state
+	// cannot be read so we never try to regenerate codes against a corrupt file.
+	enabled, _, _, err := ct.User.GetTOTP()
+	if err != nil {
+		return err
+	}
 	if !enabled {
 		return fmt.Errorf("TOTP is disabled on this account")
 	}
@@ -45,7 +49,12 @@ func (c *SelfGenerateTOTPCodes) Checks(ct *commands.Context) error {
 // Execute executes the command
 func (c *SelfGenerateTOTPCodes) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
 
-	_, currentSecret, _ := ct.User.GetTOTP()
+	// Re-read the current secret so the regenerated codes stay bound to it. Fail
+	// closed if it cannot be read rather than replicating an empty secret.
+	_, currentSecret, _, err := ct.User.GetTOTP()
+	if err != nil {
+		return
+	}
 
 	// Generate fresh emergency codes from a cryptographically secure source.
 	// These codes bypass TOTP, so a secure-RNG failure must abort rather than
