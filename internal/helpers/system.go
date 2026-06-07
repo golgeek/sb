@@ -29,6 +29,13 @@ var (
 // AddAccountInGroup adds an account in a group's membership group
 func AddAccountInGroup(groupName string, account string, membershipType string) (err error) {
 
+	// Fail closed on the privilege boundary: both names are passed to usermod, so
+	// reject anything that could be parsed as a flag or break the group list
+	// before we shell out.
+	if err = ValidateSystemNames(groupName, account); err != nil {
+		return
+	}
+
 	// Build the true groupname and all the groups names
 	if !strings.HasPrefix(groupName, "bg_") {
 		groupName = fmt.Sprintf("bg_%s", groupName)
@@ -62,6 +69,14 @@ func AddGroup(groupname string, ownerAccount string) (err error) {
 	//    - adding a /etc/sudoers.d template for the group
 	//    - putting ownerAccount in all the created groups
 	//    - create the skelleton of the home folder
+
+	// Fail closed on the privilege boundary: the group name flows into addgroup,
+	// adduser, usermod, the comma-separated -G list and the /etc/sudoers.d/<group>
+	// path, and the owner account flows into usermod, so both must be validated
+	// before we shell out.
+	if err = ValidateSystemNames(groupname, ownerAccount); err != nil {
+		return
+	}
 
 	// Build the true groupname and all the groups names
 	if !strings.HasPrefix(groupname, "bg_") {
@@ -115,6 +130,15 @@ func AddGroup(groupname string, ownerAccount string) (err error) {
 
 // AddUser creates a new user on the system
 func AddUser(homedir, username, shellPath string) (err error) {
+
+	// Fail closed on the privilege boundary: the username is passed to adduser and
+	// usermod, so reject anything that could be parsed as a flag before we shell
+	// out. homedir and shellPath are sb-derived, not user-supplied, so they are
+	// not validated here.
+	if err = ValidateSystemName(username); err != nil {
+		return
+	}
+
 	commands := make([][]string, 0, 2)
 
 	// Calling adduser
@@ -193,6 +217,13 @@ func CreateHomeSkeleton(homedir string, username string, homeType string) (err e
 // DeleteAccount deletes a group from the system
 func DeleteAccount(username, archiveSuffix string) (err error) {
 
+	// Fail closed on the privilege boundary: the username is passed to usermod and
+	// groupmod, so validate it before we shell out. The archive suffix is
+	// generated internally (bak_<timestamp>) and is not user-supplied.
+	if err = ValidateSystemName(username); err != nil {
+		return
+	}
+
 	// Build the command to archive the user
 	commands := [][]string{
 		{
@@ -231,6 +262,14 @@ func DeleteGroup(groupname, archiveSuffix string) (err error) {
 	//    - deleting the user for the group as bg_GROUPNAME
 	//    - removing a /etc/sudoers.d template for the group
 	//    - moving the home folder
+
+	// Fail closed on the privilege boundary: the group name is passed to usermod,
+	// groupmod and the /etc/sudoers.d/<group> path, so validate it before we shell
+	// out. The archive suffix is generated internally (bak_<timestamp>) and is not
+	// user-supplied.
+	if err = ValidateSystemName(groupname); err != nil {
+		return
+	}
 
 	// Build the true groupname and all the groups names
 	if !strings.HasPrefix(groupname, "bg_") {
@@ -573,6 +612,12 @@ func ArchiveHomeSkelleton(homedir, suffix string) (err error) {
 
 // RemoveAccountFromGroup adds an account in a group's membership group
 func RemoveAccountFromGroup(groupName string, account string, membershipType string) (err error) {
+
+	// Fail closed on the privilege boundary: both names are passed to deluser, so
+	// validate them before we shell out.
+	if err = ValidateSystemNames(groupName, account); err != nil {
+		return
+	}
 
 	// Build the true groupname and all the groups names
 	if !strings.HasPrefix(groupName, "bg_") {

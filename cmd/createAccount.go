@@ -37,6 +37,14 @@ func init() {
 // Checks checks whether or not the user can execute this method
 func (c *CreateAccount) Checks(ct *commands.Context) error {
 
+	// Validate the requested username up front so a malformed name is rejected
+	// with a clear message before any system change is attempted. The same
+	// validation is enforced again deeper in helpers.AddUser as the fail-closed
+	// security boundary.
+	if err := helpers.ValidateSystemName(ct.FormattedArguments["username"]); err != nil {
+		return err
+	}
+
 	// We check the user doesn't exist yet
 	_, err := models.LoadUser(ct.FormattedArguments["username"])
 	if err == nil {
