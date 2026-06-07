@@ -242,9 +242,19 @@ func (bu *User) DeletePubKey(keyType string, pk helpers.PublicKey) (err error) {
 		// Manually closing the file before writing to it
 		file.Close()
 
-		// Writing the new content to the file (WriteFile actually truncates, then writes)
-		os.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644)
+		// If reading the file failed partway through, do not overwrite it with a
+		// truncated key set — that could silently drop keys we meant to keep.
+		if err = scanner.Err(); err != nil {
+			return fmt.Errorf("unable to read %s while deleting key: %w", path, err)
+		}
 
+		// Write back the keys we are keeping (WriteFile truncates, then writes). A
+		// failed write must be reported: silently ignoring it could leave the
+		// key we are revoking still present in authorized_keys, so it would stay
+		// accepted and the revocation would not take effect.
+		if err = os.WriteFile(path, []byte(fmt.Sprintf("%s\n", strings.Join(keysToRetain, "\n"))), 0644); err != nil {
+			return fmt.Errorf("unable to write %s while deleting key: %w", path, err)
+		}
 	}
 
 	return

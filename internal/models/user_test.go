@@ -504,3 +504,51 @@ func TestGetTOTPMalformedFile(t *testing.T) {
 		})
 	}
 }
+
+// parseTestPublicKey builds a helpers.PublicKey from an authorized_keys line for
+// use in the DeletePubKey tests.
+func parseTestPublicKey(t *testing.T, line string) helpers.PublicKey {
+	t.Helper()
+	publicKey, comment, options, rest, err := ssh.ParseAuthorizedKey([]byte(line))
+	require.NoError(t, err, "failed to parse the test public key")
+	return helpers.PublicKey{PublicKey: publicKey, Comment: comment, Options: options, Rest: rest}
+}
+
+// TestDeletePubKeyReportsWriteError asserts that DeletePubKey surfaces a failure
+// to rewrite authorized_keys instead of silently ignoring it. A swallowed write
+// error would be a revocation bug: the key being removed could remain in the
+// file and stay accepted, so revocation would appear to succeed while the key
+// still worked.
+func TestDeletePubKeyReportsWriteError(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("a write-permission failure cannot be provoked when running as root")
+	}
+
+	const key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost"
+	pk := parseTestPublicKey(t, key)
+
+	// A readable but unwritable authorized_keys file: the open and scan succeed,
+	// but the subsequent rewrite fails with a permission error.
+	path := filepath.Join(t.TempDir(), "authorized_keys")
+	require.NoError(t, os.WriteFile(path, []byte(key+"\n"), 0444))
+
+	user := &User{User: &osuser.User{HomeDir: t.TempDir()}}
+	user.OverrideAuthorizedKeysFilePath(path)
+
+	err := user.DeletePubKey("ingress", pk)
+	require.Error(t, err, "a failed rewrite of authorized_keys must be reported")
+}
+
+// TestDeletePubKeyReportsReadError asserts that DeletePubKey aborts when the
+// authorized_keys file cannot be read cleanly, instead of overwriting it with a
+// possibly truncated key set. Pointing the path at a directory makes the open
+// succeed but the scan fail.
+func TestDeletePubKeyReportsReadError(t *testing.T) {
+	pk := parseTestPublicKey(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost")
+
+	user := &User{User: &osuser.User{HomeDir: t.TempDir()}}
+	user.OverrideAuthorizedKeysFilePath(t.TempDir()) // a directory, not a file
+
+	err := user.DeletePubKey("ingress", pk)
+	require.Error(t, err, "a read failure must abort instead of overwriting with a truncated set")
+}
