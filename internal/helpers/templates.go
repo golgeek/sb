@@ -33,7 +33,11 @@ func getGroupSudoersTemplate(groupname string) (str string) {
 		panic(err)
 	}
 	out := new(bytes.Buffer)
-	t.Execute(out, groupname)
+	// The template and its data are static and trusted; a failure here is a
+	// programming error, matching the panic on Parse above.
+	if err := t.Execute(out, groupname); err != nil {
+		panic(err)
+	}
 
 	return out.String()
 
@@ -77,7 +81,11 @@ WantedBy=multi-user.target`
 		panic(err)
 	}
 	out := new(bytes.Buffer)
-	t.Execute(out, tplData)
+	// The template and its data are static and trusted; a failure here is a
+	// programming error, matching the panic on Parse above.
+	if err := t.Execute(out, tplData); err != nil {
+		panic(err)
+	}
 
 	return out.String()
 }
@@ -160,7 +168,11 @@ func GetGroupSudoersTemplateOwners(binaryPath, sbUser string) (str string) {
 		panic(err)
 	}
 	out := new(bytes.Buffer)
-	t.Execute(out, tplData)
+	// The template and its data are static and trusted; a failure here is a
+	// programming error, matching the panic on Parse above.
+	if err := t.Execute(out, tplData); err != nil {
+		panic(err)
+	}
 
 	return out.String()
 }
@@ -208,7 +220,11 @@ exec ssh -p {{.Port}} {{.User}}@{{.Host}} $sshcmdline -T -- scp --access $host -
 		panic(err)
 	}
 	out := new(bytes.Buffer)
-	t.Execute(out, tplData)
+	// The template and its data are static and trusted; a failure here is a
+	// programming error, matching the panic on Parse above.
+	if err := t.Execute(out, tplData); err != nil {
+		panic(err)
+	}
 
 	return out.String()
 
@@ -239,7 +255,11 @@ func GetTOTPFile(secret string, emergencyCodes []string) (str string) {
 		panic(err)
 	}
 	out := new(bytes.Buffer)
-	t.Execute(out, tplData)
+	// The template and its data are static and trusted; a failure here is a
+	// programming error, matching the panic on Parse above.
+	if err := t.Execute(out, tplData); err != nil {
+		panic(err)
+	}
 
 	return out.String()
 

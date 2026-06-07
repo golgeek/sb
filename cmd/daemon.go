@@ -66,11 +66,19 @@ func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	// If replication is enabled, we start replicating other instances' actions
 	if replicationQueueConfig.Enabled {
 		c.replicated = dedupcache.New(5 * time.Minute)
-		go c.consumeReplicationEvents(rq)
+		go func() {
+			if err := c.consumeReplicationEvents(rq); err != nil {
+				fmt.Fprintf(os.Stderr, "ERROR: replication consumer stopped: %s\n", err)
+			}
+		}()
 	}
 
 	// Handle post executions and potentially push events to other instances via the queue
-	go c.publishReplicationEvents(rq, !replicationQueueConfig.Enabled)
+	go func() {
+		if err := c.publishReplicationEvents(rq, !replicationQueueConfig.Enabled); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: replication publisher stopped: %s\n", err)
+		}
+	}()
 
 	// Let's just wait indefinitely
 	select {}

@@ -3,6 +3,7 @@ linters:
   default: none
   enable:
     - bodyclose
+    - errcheck
     - gocritic
     - govet
     - ineffassign

@@ -21,7 +21,10 @@ func GetAccessGormDB(database string) (db *gorm.DB, err error) {
 	}
 
 	// Migrate the schema (this will create table or alter table if needed)
-	db.AutoMigrate(&Access{})
+	if err = db.AutoMigrate(&Access{}); err != nil {
+		err = fmt.Errorf("failed to migrate access schema for %s: %w", database, err)
+		return
+	}
 
 	return
 }
@@ -39,7 +42,10 @@ func GetReplicationGormDB(database string) (db *gorm.DB, err error) {
 	}
 
 	// Migrate the schema (this will create table or alter table if needed)
-	db.AutoMigrate(&Replication{})
+	if err = db.AutoMigrate(&Replication{}); err != nil {
+		err = fmt.Errorf("failed to migrate replication schema for %s: %w", database, err)
+		return
+	}
 
 	return
 }

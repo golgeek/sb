@@ -154,7 +154,10 @@ func main() {
 // TerminateSession is a global accessible function that terminates the session while saving the log one last time
 func TerminateSession(log *models.Log, err error) {
 	log.SessionEndDate = time.Now()
-	log.Save()
+	// Best-effort final audit write; report a failure rather than dropping it.
+	if saveErr := log.Save(); saveErr != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: unable to persist audit log: %s\n", saveErr)
+	}
 
 	var statusCode int
 	switch err {

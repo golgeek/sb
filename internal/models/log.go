@@ -70,7 +70,11 @@ func NewLog(username string, databases []string, arguments []string) (log *Log) 
 
 	log.Databases = databases
 
-	log.insert(true)
+	// Best-effort audit write: NewLog has no error return, so surface a failure to
+	// stderr rather than dropping the new log entry silently.
+	if err := log.insert(true); err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: unable to persist new log entry: %s\n", err)
+	}
 
 	if config.GetReplicationEnabled() {
 		err := log.PushReplication(true)
@@ -101,7 +105,9 @@ func GetLastSSHSessions(database string, limit int) (sessions []*helpers.SSHSess
 	defer sqlDB.Close()
 
 	// Migrate the schema (this will create table or alter table if needed)
-	db.AutoMigrate(&Log{})
+	if err = db.AutoMigrate(&Log{}); err != nil {
+		return
+	}
 
 	// Select
 	err = db.Where("command = ?", "ttyrec").Order("session_start_date desc").Limit(limit).Find(&logs).Error
@@ -228,7 +234,9 @@ func (l *Log) insert(insert bool) (err error) {
 		defer sqlDB.Close()
 
 		// Migrate the schema (this will create table or alter table if needed)
-		db.AutoMigrate(&Log{})
+		if err = db.AutoMigrate(&Log{}); err != nil {
+			return fmt.Errorf("unable to migrate logs schema in %s: %w", dbPath, err)
+		}
 
 		// We insert our log
 		if insert {

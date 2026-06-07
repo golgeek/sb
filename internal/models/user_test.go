@@ -168,7 +168,7 @@ func TestManageKeys(t *testing.T) {
 
 	// Start by overriding the authorized_keys file path
 	file, _ := os.CreateTemp("/tmp", "")
-	user.OverrideAuthorizedKeysFilePath(file.Name())
+	require.NoError(t, user.OverrideAuthorizedKeysFilePath(file.Name()))
 
 	// Add a new ingress key
 	pubKey := "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDviAgF0HG8m+Fu93Ob0ZgNsboHED1FEi7/LhakVO55Jka0HVV/dKm1Dg+X0+pHlKNteRrLjBT9MA8+cjTdpxCYj/jWovlUcBqZupJTi+xvSGP4q2flZdKTUh+D/bhTwcrQ910BwAzR9iMGqny3m4F62GUTQayhNMHpkOl6wicdwuMN6BYLrcm5qy9tpq0IrBYBWPyi/7knbMNTEH0UqjIIAfrO5ZHlfRs6jJ5R9gMBuJ/C4PIslzIG8WCyzS5kKrSz14xBldcj63eHtoB1ZU6RuaN4OluJLzdFFkRfGsVWQ6sVhpIMAJRCddRD2oACeHzlZiA7k32ddUKuw4Y3v1B sb@localhost"
@@ -274,7 +274,7 @@ func TestLastSSHSessions(t *testing.T) {
 		Groups: map[string]*Group{},
 	}
 
-	user.OverrideDatabaseAccessFilePath(":memory:")
+	require.NoError(t, user.OverrideDatabaseAccessFilePath(":memory:"))
 
 	sessions, err := user.GetLastSSHSessions(20)
 	require.NoError(t, err, "An unexpected error occurred when calling GetLastSSHSessions()")
@@ -299,7 +299,7 @@ func TestUserAccesses(t *testing.T) {
 	}
 
 	// Add with classic DB
-	user.OverrideDatabaseAccessFilePath(":memory:")
+	require.NoError(t, user.OverrideDatabaseAccessFilePath(":memory:"))
 
 	_, err := user.AddAccess("test.com", "root", "22", "test", "Added for tests")
 	require.NoError(t, err, "An unexpected error occurred when calling AddAccess")
@@ -454,7 +454,11 @@ func TestTOTP(t *testing.T) {
 	require.NoError(t, err, "reading a missing TOTP file should not be an error")
 	require.Equal(t, false, enabled, "The TOTP for this user should be disabled")
 
-	user.SetTOTPSecret(testSecret, testEmergencyCodes)
+	// SetTOTPSecret writes the secret file (which is what this test needs) and
+	// then chowns it to the target user, which requires root. Unprivileged in the
+	// test environment that chown fails, so the error is intentionally ignored
+	// here; the written content is still verified by GetTOTP below.
+	_ = user.SetTOTPSecret(testSecret, testEmergencyCodes)
 
 	enabled, secret, emergencyCodes, err := user.GetTOTP()
 	require.NoError(t, err, "reading a well-formed TOTP file should not error")
@@ -533,7 +537,7 @@ func TestDeletePubKeyReportsWriteError(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, []byte(key+"\n"), 0444))
 
 	user := &User{User: &osuser.User{HomeDir: t.TempDir()}}
-	user.OverrideAuthorizedKeysFilePath(path)
+	require.NoError(t, user.OverrideAuthorizedKeysFilePath(path))
 
 	err := user.DeletePubKey("ingress", pk)
 	require.Error(t, err, "a failed rewrite of authorized_keys must be reported")
@@ -547,7 +551,7 @@ func TestDeletePubKeyReportsReadError(t *testing.T) {
 	pk := parseTestPublicKey(t, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost")
 
 	user := &User{User: &osuser.User{HomeDir: t.TempDir()}}
-	user.OverrideAuthorizedKeysFilePath(t.TempDir()) // a directory, not a file
+	require.NoError(t, user.OverrideAuthorizedKeysFilePath(t.TempDir())) // a directory, not a file
 
 	err := user.DeletePubKey("ingress", pk)
 	require.Error(t, err, "a read failure must abort instead of overwriting with a truncated set")

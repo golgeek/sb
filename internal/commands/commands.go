@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -17,6 +18,16 @@ import (
 var (
 	commands map[string]Factory
 )
+
+// logAuditWarn reports a best-effort audit-log persistence failure to stderr
+// without failing the command. The authorization decision has already been made
+// by the time these writes happen, so a logging hiccup must not change the
+// command's outcome — but it must not be silently swallowed either.
+func logAuditWarn(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: unable to persist audit log: %s\n", err)
+	}
+}
 
 func RegisterCommand(name string, command Factory) {
 	if commands == nil {
@@ -115,8 +126,10 @@ func buildArgumentsList(trustedArguments map[string]Argument, args []string) (ar
 		}
 	}
 
-	// Parse the user arguments
-	flagset.Parse(args)
+	// Parse the user arguments. As noted above, undeclared flags are tolerated by
+	// design (their output is sent to an abandoned buffer), so the parse error is
+	// intentionally ignored and the remaining args are recovered via Args below.
+	_ = flagset.Parse(args)
 
 	// Get the remaining arguments for future use
 	rest = flagset.Args()
@@ -204,7 +217,7 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 	}
 
 	// Log the command we used
-	log.SetCommand(args[0])
+	logAuditWarn(log.SetCommand(args[0]))
 
 	// Let's start by displaying the helper if user asked for it
 	if len(args) > 1 && (args[1] == "help" || args[1] == "?") {
@@ -249,14 +262,14 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 				return bc, ct, err
 			}
 
-			log.SetTargetAccess(ba)
+			logAuditWarn(log.SetTargetAccess(ba))
 
 			ai, err := user.HasAccess(ba)
 			if err != nil {
 				return bc, ct, err
 			}
 			if !ai.Authorized {
-				log.SetAllowed(false)
+				logAuditWarn(log.SetAllowed(false))
 				return bc, ct, fmt.Errorf("user can't access the host %s", ba.ShortString())
 			}
 
@@ -265,27 +278,27 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 		}
 	case models.GroupMember:
 		if !user.IsMemberOfGroup(grp.Name) {
-			log.SetAllowed(false)
+			logAuditWarn(log.SetAllowed(false))
 			return bc, ct, fmt.Errorf("user is not a member of the group")
 		}
 	case models.GroupACLKeeper:
 		if !user.IsACLKeeperOfGroup(grp.Name) {
-			log.SetAllowed(false)
+			logAuditWarn(log.SetAllowed(false))
 			return bc, ct, fmt.Errorf("user is not an ACL keeper of the group")
 		}
 	case models.GroupGateKeeper:
 		if !user.IsGateKeeperOfGroup(grp.Name) {
-			log.SetAllowed(false)
+			logAuditWarn(log.SetAllowed(false))
 			return bc, ct, fmt.Errorf("user is not a gate keeper of the group")
 		}
 	case models.GroupOwner:
 		if !user.IsOwnerOfGroup(grp.Name) && !user.IsOwnerOfGroup("owners") {
-			log.SetAllowed(false)
+			logAuditWarn(log.SetAllowed(false))
 			return bc, ct, fmt.Errorf("user is not an owner of the group")
 		}
 	case models.SBOwner:
 		if !user.IsOwnerOfGroup("owners") && user.User.Uid != "0" {
-			log.SetAllowed(false)
+			logAuditWarn(log.SetAllowed(false))
 			return bc, ct, fmt.Errorf("user is not a sb owner")
 		}
 	}
@@ -293,11 +306,11 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 	// Call the check method
 	err = bc.Checks(ct)
 	if err != nil {
-		log.SetAllowed(false)
+		logAuditWarn(log.SetAllowed(false))
 		return
 	}
 
-	log.SetAllowed(true)
+	logAuditWarn(log.SetAllowed(true))
 
 	return
 }
