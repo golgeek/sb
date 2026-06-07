@@ -311,7 +311,7 @@ func DisplayHelpers(helpers helpers.Helper, arguments map[string]Argument) {
 
 		// We'll display arguments in alphabetical order, required first, then optional
 		// This is not a good algorithm!
-		order := make([]string, 0)
+		order := make([]string, 0, len(arguments))
 		maxLength := 0
 		for argumentName, argument := range arguments {
 			if len(argumentName) > maxLength {

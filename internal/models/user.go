@@ -125,7 +125,7 @@ func (bu *User) AddIngressKey(publicKey string) (err error) {
 
 	defer file.Close()
 
-	_, err = file.WriteString(fmt.Sprintf("%s\n", publicKey))
+	_, err = fmt.Fprintf(file, "%s\n", publicKey)
 	if err != nil {
 		return err
 	}

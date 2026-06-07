@@ -198,7 +198,7 @@ func (c *Setup) _appendLineIfNotPresentAlready(file, line string) (err error) {
 		return
 	}
 
-	_, err = appendOnlyFile.WriteString(fmt.Sprintf("%s\n", line))
+	_, err = fmt.Fprintf(appendOnlyFile, "%s\n", line)
 	return
 }
 

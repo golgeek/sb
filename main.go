@@ -153,13 +153,13 @@ func TerminateSession(log *models.Log, err error) {
 	log.Save()
 
 	var statusCode int
-	switch {
-	case err == nil:
+	switch err {
+	case nil:
 		statusCode = 0
-	case err == types.ErrCommandDisabled:
+	case types.ErrCommandDisabled:
 		statusCode = 126
 		fmt.Printf("This command is disabled\n")
-	case err == types.ErrMissingArguments:
+	case types.ErrMissingArguments:
 		statusCode = 2
 	default:
 		statusCode = 1

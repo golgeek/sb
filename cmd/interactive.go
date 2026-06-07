@@ -123,7 +123,8 @@ func (c *Interactive) buildMOSHCommand(ct *commands.Context) (cmd []string, err 
 	moshArguments := strings.Split(ct.FormattedArguments["client-arguments"], ",")
 	moshArguments = append(moshArguments, "-p", config.GetMOSHPortsRange(), "--")
 
-	cmd = []string{moshPath, "new"}
+	cmd = make([]string, 0, 2+len(moshArguments))
+	cmd = append(cmd, moshPath, "new")
 	cmd = append(cmd, moshArguments...)
 
 	return
@@ -179,7 +180,7 @@ func (c *Interactive) promptCompleter(d prompt.Document) ([]prompt.Suggest, istr
 		d.GetWordBeforeCursor(),
 	)
 
-	var s []prompt.Suggest
+	s := make([]prompt.Suggest, 0, len(suggestions))
 	for _, suggestion := range suggestions {
 		s = append(s, prompt.Suggest{Text: suggestion.Text, Description: suggestion.Description})
 	}
