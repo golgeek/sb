@@ -62,6 +62,20 @@ func (c *Setup) Execute(ct *commands.Context) (repl models.ReplicationData, cmdE
 		return
 	}
 
+	// Validate the new configuration before we ever restart sshd. A syntax error
+	// or rejected option would otherwise only surface when the service restarts,
+	// potentially leaving sshd down and locking everyone out of the host. If the
+	// test fails, restore the backup so the on-disk config stays bootable.
+	log.Printf("[SETUP     ] Validating new SSHD configuration with sshd -t...")
+	err = validateSSHDConfig(DefaultSSHDConfigFile)
+	if err != nil {
+		log.Printf("[SETUP     ] New SSHD configuration is invalid, restoring backup: %s", err)
+		if restoreErr := c._restoreFile(backupSSHD, DefaultSSHDConfigFile); restoreErr != nil {
+			log.Printf("[SETUP     ] Failed to restore SSHD config backup: %s", restoreErr)
+		}
+		return
+	}
+
 	// Remove password auth in PAM
 	_, err = exec.LookPath("google-authenticator")
 	if err == nil {
@@ -149,6 +163,32 @@ func (c *Setup) _backupFile(path string) (backup string, err error) {
 	return
 }
 
+func (c *Setup) _restoreFile(backup, path string) (err error) {
+	return exec.Command("cp", backup, path).Run()
+}
+
+// validateSSHDConfig runs `sshd -t` against the given config file and returns an
+// error (including sshd's own output) if the configuration is invalid. It is a
+// package variable wrapping the real command so the surrounding control flow can
+// be tested without a real sshd.
+var validateSSHDConfig = func(path string) error {
+	return validateSSHDConfigWith(path, func(name string, args ...string) ([]byte, error) {
+		return exec.Command(name, args...).CombinedOutput()
+	})
+}
+
+// validateSSHDConfigWith runs the sshd config test through the provided command
+// runner, returning a descriptive error (with the captured output) when sshd
+// reports the configuration as invalid. The runner is injected so tests can
+// exercise both the success and failure paths hermetically.
+func validateSSHDConfigWith(path string, run func(name string, args ...string) ([]byte, error)) error {
+	out, err := run("sshd", "-t", "-f", path)
+	if err != nil {
+		return fmt.Errorf("sshd configuration test failed: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
 func (c *Setup) _SetSSHDOptions() (err error) {
 
 	p, err := helpers.ParseSSHDConfigFile(DefaultSSHDConfigFile)
@@ -162,11 +202,14 @@ func (c *Setup) _SetSSHDOptions() (err error) {
 	log.Printf("[SETUP     ]   -> Switch %-32s to yes", "KbdInteractiveAuthentication")
 	p.SetParam("KbdInteractiveAuthentication", "yes")
 
-	log.Printf("[SETUP     ]   -> Switch %-32s to yes", "PasswordAuthentication")
+	log.Printf("[SETUP     ]   -> Switch %-32s to no", "PasswordAuthentication")
 	p.SetParam("PasswordAuthentication", "no")
 
-	log.Printf("[SETUP     ]   -> Switch %-32s to yes", "PermitRootLogin")
-	p.SetParam("PermitRootLogin", "yes")
+	// prohibit-password lets key/cert-based root automation keep working while
+	// refusing interactive root password logins; full "yes" would have allowed
+	// password root logins on the bastion's own sshd.
+	log.Printf("[SETUP     ]   -> Switch %-32s to prohibit-password", "PermitRootLogin")
+	p.SetParam("PermitRootLogin", "prohibit-password")
 
 	log.Printf("[SETUP     ]   -> Switch %-32s to publickey,keyboard-interactive", "AuthenticationMethods")
 	p.SetParam("AuthenticationMethods", "publickey,keyboard-interactive")

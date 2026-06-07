@@ -110,8 +110,13 @@ Notably,
 - in `/etc/ssh/sshd_config`:
   - [x] make sure that `PasswordAuthentication` is set to `no`
   - [x] make sure that `ChallengeResponseAuthentication` is set to `yes` (to enable TOTP)
-  - [x] make sure that `PermitRootLogin` is set to `yes` to allow maintenance operations
+  - [x] make sure that `PermitRootLogin` is set to `prohibit-password` (key/cert-based root maintenance still works; interactive root password logins are refused)
   - [x] make sure that `AuthenticationMethods` is set to `publickey,keyboard-interactive`
+
+The setup also validates the resulting configuration with `sshd -t` before
+restarting the SSH service. If the configuration is invalid, the original file is
+restored and the service is not restarted, so a mistake cannot lock you out of
+the host.
 - configure `/etc/pam.d/sshd` to enable TOTP via `pam_google_authenticator` if it is installed on the system
 - create the technical `sb` user
 - create the `sudoers.d` file for sb `owners` group so that owners can create groups and users
