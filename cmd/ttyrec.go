@@ -256,7 +256,8 @@ func (c *Ttyrec) buildMOSHCommand(clientArguments string) (cmd []string, err err
 	moshArguments := strings.Split(clientArguments, ",")
 	moshArguments = append(moshArguments, "-p", config.GetMOSHPortsRange(), "--")
 
-	cmd = []string{moshPath, "new"}
+	cmd = make([]string, 0, 2+len(moshArguments))
+	cmd = append(cmd, moshPath, "new")
 	cmd = append(cmd, moshArguments...)
 
 	return

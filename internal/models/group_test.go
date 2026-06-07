@@ -267,7 +267,7 @@ func TestDisplayPubKeys(t *testing.T) {
 		"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDDviAgF0HG8m+Fu93Ob0ZgNsboHED1FEi7/LhakVO55Jka0HVV/dKm1Dg+X0+pHlKNteRrLjBT9MA8+cjTdpxCYj/jWovlUcBqZupJTi+xvSGP4q2flZdKTUh+D/bhTwcrQ910BwAzR9iMGqny3m4F62GUTQayhNMHpkOl6wicdwuMN6BYLrcm5qy9tpq0IrBYBWPyi/7knbMNTEH0UqjIIAfrO5ZHlfRs6jJ5R9gMBuJ/C4PIslzIG8WCyzS5kKrSz14xBldcj63eHtoB1ZU6RuaN4OluJLzdFFkRfGsVWQ6sVhpIMAJRCddRD2oACeHzlZiA7k32ddUKuw4Y3v1B sb@localhost",
 	}
 
-	expectedResult := make([]helpers.PublicKey, 0)
+	expectedResult := make([]helpers.PublicKey, 0, len(pubKeys))
 	for _, key := range pubKeys {
 		publicKey, comment, options, rest, _ := ssh.ParseAuthorizedKey([]byte(key))
 

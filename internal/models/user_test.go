@@ -129,7 +129,7 @@ func TestListPubKeys(t *testing.T) {
 
 	for keyType, keys := range pubKeys {
 
-		expectedResult := make([]helpers.PublicKey, 0)
+		expectedResult := make([]helpers.PublicKey, 0, len(keys))
 		for _, key := range keys {
 			publicKey, comment, options, rest, _ := ssh.ParseAuthorizedKey([]byte(key))
 

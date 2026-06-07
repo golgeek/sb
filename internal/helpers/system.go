@@ -67,13 +67,14 @@ func AddGroup(groupname string, ownerAccount string) (err error) {
 	if !strings.HasPrefix(groupname, "bg_") {
 		groupname = fmt.Sprintf("bg_%s", groupname)
 	}
-	groups := []string{groupname}
+	groups := make([]string, 0, 4)
+	groups = append(groups, groupname)
 	for _, suffix := range []string{"o", "gk", "aclk"} {
 		groups = append(groups, fmt.Sprintf("%s-%s", groupname, suffix))
 	}
 
 	// We'll build all commands, and the then execute them
-	commands := make([][]string, 0)
+	commands := make([][]string, 0, len(groups)+1+1)
 
 	// Build commands to create all the groups
 	for _, group := range groups {
@@ -114,7 +115,7 @@ func AddGroup(groupname string, ownerAccount string) (err error) {
 
 // AddUser creates a new user on the system
 func AddUser(homedir, username, shellPath string) (err error) {
-	commands := make([][]string, 0)
+	commands := make([][]string, 0, 2)
 
 	// Calling adduser
 	commands = append(commands, []string{"/usr/bin/sudo", "/usr/sbin/adduser", "--home", homedir, "--shell", shellPath, "--disabled-password", "--gecos", "''", username})
@@ -235,13 +236,14 @@ func DeleteGroup(groupname, archiveSuffix string) (err error) {
 	if !strings.HasPrefix(groupname, "bg_") {
 		groupname = fmt.Sprintf("bg_%s", groupname)
 	}
-	groups := []string{groupname}
+	groups := make([]string, 0, 4)
+	groups = append(groups, groupname)
 	for _, suffix := range []string{"o", "gk", "aclk"} {
 		groups = append(groups, fmt.Sprintf("%s-%s", groupname, suffix))
 	}
 
 	// We'll build all commands, and the then execute them
-	commands := make([][]string, 0)
+	commands := make([][]string, 0, 2+len(groups)+1)
 
 	// Build the command to archive the user for the group
 	commands = append(commands,
@@ -403,7 +405,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 	// or weak suffix.
 	suffixes, err := GetRandomStrings(2, 5)
 	if err != nil {
-		err = fmt.Errorf("Unable to generate random key suffixes: %w", err)
+		err = fmt.Errorf("unable to generate random key suffixes: %w", err)
 		return
 	}
 
@@ -425,7 +427,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 		var pkrsa *rsa.PrivateKey
 		pkrsa, err = rsa.GenerateKey(rand.Reader, sizeInt)
 		if err != nil {
-			err = fmt.Errorf("Unable to generate rsa key: %w", err)
+			err = fmt.Errorf("unable to generate rsa key: %w", err)
 			return
 		}
 		pk = pkrsa
@@ -446,7 +448,7 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 
 		pkecdsa, err = ecdsa.GenerateKey(pubkeyCurve, rand.Reader)
 		if err != nil {
-			err = fmt.Errorf("Unable to generate ecdsa key: %w", err)
+			err = fmt.Errorf("unable to generate ecdsa key: %w", err)
 			return
 		}
 
@@ -456,14 +458,14 @@ func GenerateNewEgressKey(algo string, size string, passphrase string, username 
 	case "ed25519":
 		pubk, pk, err = ed25519.GenerateKey(rand.Reader)
 		if err != nil {
-			err = fmt.Errorf("Unable to generate ed25519 key: %w", err)
+			err = fmt.Errorf("unable to generate ed25519 key: %w", err)
 			return
 		}
 	}
 
 	sshPublicKey, err := ssh.NewPublicKey(pubk)
 	if err != nil {
-		err = fmt.Errorf("Unable to derive publickey from privatekey: %w", err)
+		err = fmt.Errorf("unable to derive publickey from privatekey: %w", err)
 		return
 	}
 

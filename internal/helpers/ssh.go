@@ -122,7 +122,7 @@ func marshalOpenSSHPrivateKey(key crypto.PrivateKey, comment string, encrypt ope
 
 	switch k := key.(type) {
 	case *rsa.PrivateKey:
-		E := new(big.Int).SetInt64(int64(k.PublicKey.E))
+		E := new(big.Int).SetInt64(int64(k.E))
 		// Marshal public key:
 		// E and N are in reversed order in the public and private key.
 		pubKey := struct {
@@ -131,7 +131,7 @@ func marshalOpenSSHPrivateKey(key crypto.PrivateKey, comment string, encrypt ope
 			N       *big.Int
 		}{
 			ssh.KeyAlgoRSA,
-			E, k.PublicKey.N,
+			E, k.N,
 		}
 		w.PubKey = ssh.Marshal(pubKey)
 
@@ -145,7 +145,7 @@ func marshalOpenSSHPrivateKey(key crypto.PrivateKey, comment string, encrypt ope
 			Q       *big.Int
 			Comment string
 		}{
-			k.PublicKey.N, E,
+			k.N, E,
 			k.D, k.Precomputed.Qinv, k.Primes[0], k.Primes[1],
 			comment,
 		}
@@ -193,7 +193,7 @@ func marshalOpenSSHPrivateKey(key crypto.PrivateKey, comment string, encrypt ope
 			return nil, errors.New("ssh: unhandled elliptic curve " + name)
 		}
 
-		pub := elliptic.Marshal(k.Curve, k.PublicKey.X, k.PublicKey.Y)
+		pub := elliptic.Marshal(k.Curve, k.X, k.Y)
 
 		// Marshal public key.
 		pubKey := struct {
