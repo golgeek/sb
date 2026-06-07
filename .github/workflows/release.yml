@@ -9,24 +9,28 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
-    - name: Unshallow
-      run: git fetch --prune --unshallow
+      uses: actions/checkout@v4
+      with:
+        # GoReleaser needs the full commit history and all tags to derive the
+        # version; a full checkout replaces the old manual `git fetch --unshallow`.
+        fetch-depth: 0
     - name: Set up Go
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: '1.26'
     - name: Import GPG key
       id: import_gpg
-      uses: paultyng/ghaction-import-gpg@v2.1.0
-      env:
-        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-        PASSPHRASE: ${{ secrets.PASSPHRASE }}
-    - name: Run GoReleaser
-      uses: goreleaser/goreleaser-action@v2
+      uses: crazy-max/ghaction-import-gpg@v6
       with:
-        version: latest
-        args: release --rm-dist
+        gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
+        passphrase: ${{ secrets.PASSPHRASE }}
+    - name: Run GoReleaser
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        # Pin the major version so a future GoReleaser v3 cannot silently break
+        # the release (the config is schema v2).
+        version: '~> v2'
+        args: release --clean
       env:
         GPG_FINGERPRINT: ${{ steps.import_gpg.outputs.fingerprint }}
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
