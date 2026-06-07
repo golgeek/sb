@@ -5,6 +5,7 @@ linters:
     - bodyclose
     - errcheck
     - gocritic
+    - gosec
     - govet
     - ineffassign
     - misspell
@@ -25,6 +26,21 @@ linters:
       - common-false-positives
       - legacy
       - std-error-handling
+    rules:
+      # sb is an SSH bastion: it shells out to sudo/ssh/adduser/usermod for every
+      # privileged action, so exec.Command with computed arguments is inherent and
+      # reviewed. exec.Command never invokes a shell (no shell injection) and
+      # user-supplied user/group names are validated at the helper boundary
+      # (helpers.ValidateSystemName), so gosec's G204 is noise for this codebase.
+      - linters:
+          - gosec
+        text: "G204"
+      # Test code uses controlled, local inputs (t.TempDir, fixed fixtures); gosec's
+      # taint/permission heuristics (e.g. G703 path traversal, G306 file mode)
+      # raise false positives there.
+      - linters:
+          - gosec
+        path: _test\.go
     paths:
       - third_party$
       - builtin$
