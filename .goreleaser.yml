@@ -1,27 +1,32 @@
+# GoReleaser configuration (schema v2). Pinned to v2 in the release workflow so a
+# future major release of GoReleaser cannot silently break the pipeline.
+version: 2
+
 before:
   hooks:
     - go mod tidy
     - go generate ./...
 
 builds:
-- env:
-    - CGO_ENABLED=0
-  mod_timestamp: '{{ .CommitTimestamp }}'
-  flags:
-    - -trimpath
-  ldflags:
-    - '-s -w -X github.com/golgeek/sb/internal/config.VERSION={{.Version}} -X github.com/golgeek/sb/internal/config.COMMIT={{.Commit}}'
-  goos:
-    - linux
-  goarch:
-    - amd64
-    - '386'
-    - arm
-    - arm64
-  binary: '{{ .ProjectName }}_v{{ .Version }}'
+  - env:
+      - CGO_ENABLED=0
+    mod_timestamp: '{{ .CommitTimestamp }}'
+    flags:
+      - -trimpath
+    ldflags:
+      - '-s -w -X github.com/golgeek/sb/internal/config.VERSION={{.Version}} -X github.com/golgeek/sb/internal/config.COMMIT={{.Commit}}'
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - '386'
+      - arm
+      - arm64
+    binary: '{{ .ProjectName }}_v{{ .Version }}'
 
 archives:
-  - format: tar.gz
+  # v2 renamed the singular `format` to the list-valued `formats`.
+  - formats: [ tar.gz ]
     name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
 
 checksum:
@@ -40,4 +45,5 @@ signs:
       - "${artifact}"
 
 changelog:
-  skip: true
+  # v2 renamed `skip: true` to `disable: true`.
+  disable: true
