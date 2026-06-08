@@ -28,6 +28,7 @@ general:
   mosh_ports_range: 40000:49999
   env_vars_to_forward: ["USER"]
   encryption-key: changemechangemechangemechangeme
+  egress_strict_host_key_checking: accept-new
 ```
 
 - `binary_path` (string): the path where `sb`'s binary is on the bastion server
@@ -52,6 +53,11 @@ general:
   > other's payloads. To rotate it, set the new value on every instance and restart the
   > daemon on each; in-flight payloads encrypted with the old key must be drained (or
   > discarded) before the old key is removed.
+- `egress_strict_host_key_checking` (string): the `StrictHostKeyChecking` policy used on the
+  egress hop (bastion → distant host) for both interactive sessions and SCP. Defaults to
+  `accept-new` (pin a host's key on first sight, refuse a later change); set to `yes` to
+  refuse any host not already pinned, or `no` to disable verification (discouraged). See
+  [egress host-key verification](./usage.md#egress-host-key-verification)
 
 ## Replication
 

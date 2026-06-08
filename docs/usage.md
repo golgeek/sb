@@ -162,6 +162,33 @@ Available commands:
   - self totp enable                   : enable TOTP on the account
 ```
 
+## Egress host-key verification
+
+When `sb` connects you to a distant host (interactive sessions and SCP alike), it pins the
+host-key check on that bastion → host hop instead of relying on inherited SSH defaults. Each
+distant host key is recorded in your managed `known_hosts` on the bastion, and the policy is
+controlled by `general.egress_strict_host_key_checking`
+([configuration](./configuration.md#general)):
+
+- `accept-new` (default): the first time a host is seen, its key is pinned automatically;
+  if a pinned host later presents a **different** key, the connection is refused
+  (trust-on-first-use with pinning). This protects the session — and the forwarded agent —
+  from a host whose key has changed.
+- `yes`: refuse any host that is not already pinned (use this if you provision host keys out
+  of band).
+- `no`: disable verification entirely (strongly discouraged).
+
+If a connection is refused because a host key changed, `sb` prints a ready-to-paste command
+that clears the stale pin via `self hostkey forget`. **Only run it if you trust the change**
+(e.g. the host was legitimately rebuilt) — a key change can also be a man-in-the-middle
+attack:
+
+```console
+t1000@skynet:~# ssh -p 22 t1000@sb.YOUR_DOMAIN.com "self hostkey forget --hostkey '10.0.0.10'"
+```
+
+Then reconnect; the new key is pinned on the next connection.
+
 ## Use SCP across sb
 
 If your goal is to transfer files from or to a distant host with `scp` through `sb`, you're in luck!

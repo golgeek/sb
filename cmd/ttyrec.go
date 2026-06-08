@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/config"
@@ -22,6 +23,25 @@ import (
 
 // Ttyrec describes the ttyrec command
 type Ttyrec struct{}
+
+// lockedWriter serializes writes to an underlying writer behind a mutex. The
+// session's stdout and stderr are drained by two separate goroutines that both
+// record into the same ttyrec.Encoder, which is not safe for concurrent use; a
+// lockedWriter wrapping the encoder makes each frame write atomic so the two
+// streams can be recorded as they arrive without corrupting the recording.
+type lockedWriter struct {
+	mu sync.Mutex
+	w  io.Writer
+}
+
+// Write forwards p to the wrapped writer while holding the mutex, so concurrent
+// callers never interleave a single frame. It returns the wrapped writer's
+// result unchanged.
+func (l *lockedWriter) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.w.Write(p)
+}
 
 func init() {
 	commands.RegisterCommand("ttyrec", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
@@ -74,8 +94,11 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 		"ttyrec-record-path": fmt.Sprintf("%s/%s.ttyrec", ct.User.GetTtyrecDirectory(), ct.Log.UniqID),
 	}
 
-	// Building the SSH command
-	sshCommand, err := c.buildSSHCommand(access, ct.AI.KeyFilepathes, ct.RawArguments)
+	// Building the SSH command. The egress hop pins host-key verification
+	// against the user's managed known_hosts with the configured policy
+	// (TOFU-with-pinning by default), so the session and the forwarded agent are
+	// never silently exposed to a host whose key has changed.
+	sshCommand, err := c.buildSSHCommand(access, ct.AI.KeyFilepathes, ct.RawArguments, ct.User.GetKnownHostsFilepath(), config.GetEgressStrictHostKeyChecking())
 	if err != nil {
 		return
 	}
@@ -112,30 +135,26 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	}
 	defer stderr.Close()
 
-	// Handle ttyrec to a file. This runs in its own goroutine, so it cannot return
-	// an error to the caller; it logs any failure to stderr instead of dropping it
-	// silently, which previously hid a failed session recording.
-	go func(filename string, r io.Reader) {
+	// Watch the egress stderr for a host-key-mismatch so we can hand the user a
+	// recovery hint after the connection is refused. It is one leg of the stderr
+	// fan-out below, so the real error output is unaffected.
+	hostKeyWatcher := &helpers.HostKeyWatcher{}
 
-		f, err := os.Create(filename)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: unable to open ttyrec file: %s\n", err)
-			return
-		}
+	// Open the recording file up front so a failure is reported immediately
+	// rather than from inside a goroutine. Recording is best-effort: if the file
+	// cannot be created we still run a live session, writing the recording to
+	// io.Discard, so a recording problem never blocks the user's connection.
+	// Both stream copiers below share this single encoder, serialized by
+	// lockedWriter because ttyrec.Encoder is not safe for concurrent use.
+	// io.Discard is typed io.Writer, so rec stays an io.Writer that the
+	// successful branch can reassign to the recording encoder.
+	rec := io.Discard
+	if f, ferr := os.Create(repl["ttyrec-record-path"]); ferr != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: unable to open ttyrec file: %s\n", ferr)
+	} else {
 		defer f.Close()
-
-		e := ttyrec.NewEncoder(f)
-
-		if _, err := io.Copy(e, r); err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: unable to write SSH session to ttyrec: %s\n", err)
-		}
-	}(
-		repl["ttyrec-record-path"],
-		io.MultiReader(
-			io.TeeReader(stdout, os.Stdout),
-			io.TeeReader(stderr, os.Stderr),
-		),
-	)
+		rec = &lockedWriter{w: ttyrec.NewEncoder(f)}
+	}
 
 	// Start the command
 	err = cmd.Start()
@@ -143,6 +162,39 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 		err = fmt.Errorf("unable to start command: %w", err)
 		return
 	}
+
+	// Drain stdout and stderr CONCURRENTLY, each in its own goroutine. The
+	// previous implementation wrapped both pipes in a single io.MultiReader,
+	// which reads stdout to EOF — i.e. until the egress process exits — before it
+	// ever touches stderr. ssh writes its own diagnostics (host-key mismatch,
+	// "Permission denied", connection errors) to stderr, so that ordering hid
+	// every error from the user until the session was already over, starved the
+	// host-key watcher of its input until shutdown, and recorded all of stderr
+	// appended after all of stdout instead of in the order they actually
+	// occurred. Copying each stream independently forwards errors to the terminal
+	// the instant ssh emits them and records frames in true arrival order. Each
+	// stream fans out to the terminal and the recorder; stderr additionally feeds
+	// the host-key watcher.
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		if _, cerr := io.Copy(io.MultiWriter(os.Stdout, rec), stdout); cerr != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: unable to record session stdout: %s\n", cerr)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		if _, cerr := io.Copy(io.MultiWriter(os.Stderr, hostKeyWatcher, rec), stderr); cerr != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: unable to record session stderr: %s\n", cerr)
+		}
+	}()
+
+	// Both pipes reach EOF when the egress process closes them (i.e. when it
+	// exits), so this returns once the session output is fully drained and
+	// scanned — which must happen before Wait closes the pipes out from under
+	// the readers.
+	wg.Wait()
 
 	// Wait until user exits the shell
 	err = cmd.Wait()
@@ -162,6 +214,15 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 	if cmd.ProcessState.ExitCode() > 0 {
 		cmdError = fmt.Errorf("failed to execute command on distant host: %w", cmdError)
+	}
+
+	// If the connection was refused because the distant host's key changed, give
+	// the user a copy-pasteable command to clear the stale pin (gated on trust).
+	if hostKeyWatcher.Triggered() {
+		fmt.Fprint(os.Stderr, helpers.HostKeyMismatchHint(
+			ct.User.User.Username, config.GetSBHostname(), config.GetSSHPort(),
+			access.Host, access.Port,
+		))
 	}
 
 	return
@@ -265,7 +326,7 @@ func (c *Ttyrec) buildMOSHCommand(clientArguments string) (cmd []string, err err
 	return
 }
 
-func (c *Ttyrec) buildSSHCommand(access *models.Access, keyfilePathes []string, rawArguments []string) (cmd []string, err error) {
+func (c *Ttyrec) buildSSHCommand(access *models.Access, keyfilePathes []string, rawArguments []string, knownHostsFile, strictHostKeyChecking string) (cmd []string, err error) {
 
 	// Set sb environment
 	for _, envVar := range config.GetEnvironmentVarsToForward() {
@@ -279,12 +340,19 @@ func (c *Ttyrec) buildSSHCommand(access *models.Access, keyfilePathes []string, 
 		return
 	}
 
-	// Building the ssh command
+	// Building the ssh command. Host-key verification is pinned explicitly
+	// rather than left to inherited ssh defaults: -oUserKnownHostsFile points at
+	// the user's managed known_hosts and -oStrictHostKeyChecking carries the
+	// configured policy (accept-new by default: pin on first sight, refuse a
+	// later changed key). -A keeps agent forwarding for onward auth from the
+	// distant host.
 	cmd = []string{
 		sshPath, access.Host,
 		"-l", access.User,
 		"-p", fmt.Sprintf("%d", access.Port),
 		"-A",
+		fmt.Sprintf("-oUserKnownHostsFile=%s", knownHostsFile),
+		fmt.Sprintf("-oStrictHostKeyChecking=%s", strictHostKeyChecking),
 	}
 
 	// We push environment variables to forward
