@@ -214,6 +214,25 @@ Transferred: sent 5396, received 2812 bytes, in 1.0 seconds
 Bytes per second: sent 5417.9, received 2823.4
 ```
 
+> **Note:** the wrapper auto-detects which protocol your client uses, so the alias needs
+> **no** `-O` flag. Modern clients (OpenSSH 9.0+, which default to the SFTP protocol) and
+> older clients (legacy SCP protocol) both work through the same `scp -S ~/.sbscp` alias.
+> Because the wrapper handles SFTP too, you can also point `sftp` at it:
+> ```console
+> t1000@skynet:~# alias sbsftp='sftp -S ~/.sbscp '
+> t1000@skynet:~# sbsftp root@10.0.0.10
+> ```
+>
+> **One exception — a recent client talking to an old distant host.** Your client picks the
+> protocol from *its own* version, and `sb` mirrors that choice onto the distant host. A
+> modern client therefore requests the SFTP subsystem, which fails if the distant host has no
+> `sftp-server` (you'll see `subsystem request failed`). This is exactly how a *direct*
+> `scp` behaves against such a host — OpenSSH 9.0+ does not fall back to the legacy protocol
+> on its own. Force the legacy protocol with `-O` for those hosts:
+> ```console
+> t1000@skynet:~# scp -O -S ~/.sbscp README.md root@old-host:/tmp/README.md
+> ```
+
 ## Enable and use Time-based One-Time Password
 
 If you want an extra security on top of the SSH key pair authentication when connecting to `sb`, 

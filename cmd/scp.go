@@ -20,6 +20,15 @@ import (
 // Scp describes the help command
 type Scp struct{}
 
+// scpSFTPSubsystem is the sentinel the wrapper script passes as --scp-cmd to
+// select SFTP mode. It is the actual SSH subsystem name, so the bastion can
+// forward it verbatim to "ssh -s host sftp" on the egress hop. Carrying the
+// mode through the existing --scp-cmd argument (rather than a separate flag)
+// keeps the command's surface to --access + --scp-cmd, and the bastion still
+// only ever matches this fixed token or the strict legacy regex below — never
+// arbitrary client input.
+const scpSFTPSubsystem = "sftp"
+
 func init() {
 	commands.RegisterCommand("scp", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
 		return new(Scp), models.HasAccess, helpers.Helper{
@@ -29,7 +38,7 @@ func init() {
              This requires the execution of script in complement of your usual scp command.
              To get this running, execute the following commands:
                  %s scp --get-script > ~/.%sscp && chmod +x ~/.%sscp
-                 alias %sscp='scp -O -S ~/.%sscp '
+                 alias %sscp='scp -S ~/.%sscp '
 			 And voila, you're all set: just run the command '%sscp' as you would run 'scp'!`,
 					config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName()),
 			}, map[string]commands.Argument{
@@ -39,7 +48,7 @@ func init() {
 				},
 				"scp-cmd": {
 					Required:    false,
-					Description: "The actual SCP command",
+					Description: "The remote transfer command: a legacy 'scp -t/-f ...' invocation, or the literal 'sftp' to proxy the SFTP subsystem (set by the wrapper script)",
 				},
 				"get-script": {
 					Required:    false,
@@ -53,21 +62,32 @@ func init() {
 // Checks checks whether or not the user can execute this method
 func (c *Scp) Checks(ct *commands.Context) error {
 
-	scpValidRegexp := regexp.MustCompile(`^scp (-r )?(-f|-t) .*`)
-
-	// In case an access was provided and verified
-	if ct.AI != nil {
-
-		// And we check we have a scp-cmd
-		if ct.FormattedArguments["scp-cmd"] == "" {
-			return fmt.Errorf("argument scp-cmd should be provided")
-		}
-
-		if !scpValidRegexp.MatchString(ct.FormattedArguments["scp-cmd"]) {
-			return fmt.Errorf("argument scp-cmd should be a scp internal formated command")
-		}
-
+	// The get-script and help paths resolve no access, so there is no transfer
+	// command to validate.
+	if ct.AI == nil {
+		return nil
 	}
+
+	scpCmd := ct.FormattedArguments["scp-cmd"]
+	if scpCmd == "" {
+		return fmt.Errorf("argument scp-cmd should be provided")
+	}
+
+	// SFTP mode: the wrapper requests the sftp subsystem by its name. sb is a
+	// transparent byte pipe to the egress subsystem, so there is nothing further
+	// to validate. The decision is made on this fixed sentinel, never on
+	// arbitrary client input.
+	if scpCmd == scpSFTPSubsystem {
+		return nil
+	}
+
+	// Legacy SCP mode: the scp-cmd is the verbatim remote invocation, so it must
+	// be shaped like the internal "scp -t/-f" sub-protocol.
+	scpValidRegexp := regexp.MustCompile(`^scp (-r )?(-f|-t) .*`)
+	if !scpValidRegexp.MatchString(scpCmd) {
+		return fmt.Errorf("argument scp-cmd should be a scp internal formated command")
+	}
+
 	return nil
 }
 
@@ -124,13 +144,12 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 	}
 
 	// Build the egress command prefix (ssh options + port/user/keys, with
-	// host-key verification pinned), then append the transparent transfer tail.
+	// host-key verification pinned), then append the transparent transfer tail
+	// for whichever mode the wrapper requested.
+	scpCmd := ct.FormattedArguments["scp-cmd"]
+	isSFTP := scpCmd == scpSFTPSubsystem
 	command := c.buildEgressBaseCommand(sshPath, access, ct.AI.KeyFilepathes, ct.User.GetKnownHostsFilepath(), config.GetEgressStrictHostKeyChecking())
-	command = append(command,
-		"--",
-		access.Host,
-		ct.FormattedArguments["scp-cmd"],
-	)
+	command = c.appendTransferTail(command, access.Host, isSFTP, scpCmd)
 
 	// Watch the egress stderr for a host-key mismatch so we can surface a
 	// recovery hint; it shadows os.Stderr and does not alter the real output.
@@ -196,6 +215,19 @@ func (c *Scp) buildEgressBaseCommand(sshPath string, access *models.Access, keyF
 		command = append(command, "-i", privateKeyFile)
 	}
 	return command
+}
+
+// appendTransferTail appends the mode-specific tail to an egress base command.
+// In SFTP mode it requests the sftp subsystem on the distant host (ssh -s ...
+// host sftp); in legacy mode it runs the verbatim scp sub-protocol command
+// (ssh ... -- host "scp -t/-f ..."). Either way sb only shuttles bytes between
+// the two SSH connections, so it stays a transparent pipe. scpCmd is ignored in
+// SFTP mode.
+func (c *Scp) appendTransferTail(base []string, host string, sftp bool, scpCmd string) []string {
+	if sftp {
+		return append(base, "-s", "--", host, "sftp")
+	}
+	return append(base, "--", host, scpCmd)
 }
 
 func (c *Scp) PostExecute(repl models.ReplicationData) (err error) {
