@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"regexp"
@@ -122,28 +123,23 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 		return
 	}
 
-	command := []string{
-		sshPath,
-		"-x",
-		"-oForwardAgent=no",
-		"-oPermitLocalCommand=no",
-		"-oClearAllForwardings=yes",
-		"-p", strconv.Itoa(access.Port),
-		"-l", access.User,
-	}
-	for _, privateKeyFile := range ct.AI.KeyFilepathes {
-		command = append(command, "-i", privateKeyFile)
-	}
+	// Build the egress command prefix (ssh options + port/user/keys, with
+	// host-key verification pinned), then append the transparent transfer tail.
+	command := c.buildEgressBaseCommand(sshPath, access, ct.AI.KeyFilepathes, ct.User.GetKnownHostsFilepath(), config.GetEgressStrictHostKeyChecking())
 	command = append(command,
 		"--",
 		access.Host,
 		ct.FormattedArguments["scp-cmd"],
 	)
 
+	// Watch the egress stderr for a host-key mismatch so we can surface a
+	// recovery hint; it shadows os.Stderr and does not alter the real output.
+	hostKeyWatcher := &helpers.HostKeyWatcher{}
+
 	cmd := exec.Command(command[0], command[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stderr = io.MultiWriter(os.Stderr, hostKeyWatcher)
 
 	err = cmd.Start()
 	if err != nil {
@@ -160,7 +156,46 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 		err = nil
 	}
 
+	// If the host key changed, point the user at the forget command (gated on trust).
+	if hostKeyWatcher.Triggered() {
+		fmt.Fprint(os.Stderr, helpers.HostKeyMismatchHint(
+			ct.User.User.Username, config.GetSBHostname(), config.GetSSHPort(),
+			access.Host, access.Port,
+		))
+	}
+
 	return
+}
+
+// buildEgressBaseCommand assembles the common prefix of the egress SSH command
+// used to proxy a transfer to a distant host: the ssh binary, the hardening
+// options (agent forwarding off, no local command, all forwardings cleared),
+// pinned host-key verification against the user's managed known_hosts with the
+// configured policy, the target port and login user, and each private key.
+//
+// It deliberately stops before the "-- host <command>" tail so callers can
+// append either the legacy "scp -t/-f" command or, in SFTP mode, an sftp
+// subsystem request, keeping a single place that owns the security-relevant
+// options. The returned slice's first element is sshPath.
+func (c *Scp) buildEgressBaseCommand(sshPath string, access *models.Access, keyFiles []string, knownHostsFile, strictHostKeyChecking string) []string {
+	// 11 fixed elements (ssh path, the hardening/host-key options, -p/-l pairs)
+	// plus two entries per private key.
+	command := make([]string, 0, 11+2*len(keyFiles))
+	command = append(command,
+		sshPath,
+		"-x",
+		"-oForwardAgent=no",
+		"-oPermitLocalCommand=no",
+		"-oClearAllForwardings=yes",
+		fmt.Sprintf("-oUserKnownHostsFile=%s", knownHostsFile),
+		fmt.Sprintf("-oStrictHostKeyChecking=%s", strictHostKeyChecking),
+		"-p", strconv.Itoa(access.Port),
+		"-l", access.User,
+	)
+	for _, privateKeyFile := range keyFiles {
+		command = append(command, "-i", privateKeyFile)
+	}
+	return command
 }
 
 func (c *Scp) PostExecute(repl models.ReplicationData) (err error) {

@@ -45,6 +45,7 @@ func init() {
 			viper.SetDefault("general.sb_user", "sb")
 			viper.SetDefault("general.sb_user_home", "/home/sb")
 			viper.SetDefault("general.encryption-key", DefaultEncryptionKey)
+			viper.SetDefault("general.egress_strict_host_key_checking", defaultEgressStrictHostKeyChecking)
 
 			// Commands configuration
 			viper.SetDefault("commands.ssh_command", "ttyrec")
@@ -219,6 +220,34 @@ func ValidateSecretsEncryption() error {
 	}
 
 	return nil
+}
+
+// defaultEgressStrictHostKeyChecking is the fallback host-key policy for the
+// egress hop. It is also registered with viper.SetDefault, but that default only
+// applies when sb runs with no config file at all; real deployments always have
+// one, so the accessor below must not depend on it.
+const defaultEgressStrictHostKeyChecking = "accept-new"
+
+// GetEgressStrictHostKeyChecking returns the value passed to the egress SSH
+// hop's -oStrictHostKeyChecking option (bastion -> distant host).
+//
+// It defaults to "accept-new": the first time a distant host is seen its key is
+// pinned in the user's managed known_hosts, and any later key change is refused
+// (TOFU-with-pinning). Operators who pre-provision host keys out of band can
+// tighten this to "yes" to refuse any unknown host; "no" disables verification
+// entirely and is strongly discouraged. The value is passed verbatim to ssh.
+//
+// An empty value is treated as unset and falls back to the default. This is
+// deliberate: viper's SetDefault only takes effect when no config file is
+// present, but existing deployments have a config file that predates this key,
+// so the value would be empty there — and emitting "-oStrictHostKeyChecking="
+// makes ssh abort with "no argument after keyword". Falling back here keeps
+// those deployments working and never produces an empty option.
+func GetEgressStrictHostKeyChecking() string {
+	if policy := viper.GetString("general.egress_strict_host_key_checking"); policy != "" {
+		return policy
+	}
+	return defaultEgressStrictHostKeyChecking
 }
 
 func GetReplicationEnabled() bool {

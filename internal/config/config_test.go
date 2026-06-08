@@ -118,3 +118,24 @@ func TestValidateSecretsEncryption(t *testing.T) {
 		})
 	}
 }
+
+// TestGetEgressStrictHostKeyChecking verifies the accessor never returns an
+// empty policy (which would make ssh abort with "no argument after keyword
+// stricthostkeychecking"). A configured value is returned verbatim, while an
+// empty/unset value — the situation for deployments whose config file predates
+// this key, since viper defaults do not apply when a config file is present —
+// falls back to the safe default.
+func TestGetEgressStrictHostKeyChecking(t *testing.T) {
+	t.Cleanup(func() { viper.Set("general.egress_strict_host_key_checking", defaultEgressStrictHostKeyChecking) })
+
+	t.Run("configured value is returned", func(t *testing.T) {
+		viper.Set("general.egress_strict_host_key_checking", "yes")
+		require.Equal(t, "yes", GetEgressStrictHostKeyChecking())
+	})
+
+	t.Run("empty value falls back to the default", func(t *testing.T) {
+		viper.Set("general.egress_strict_host_key_checking", "")
+		require.Equal(t, defaultEgressStrictHostKeyChecking, GetEgressStrictHostKeyChecking())
+		require.NotEmpty(t, GetEgressStrictHostKeyChecking())
+	})
+}
