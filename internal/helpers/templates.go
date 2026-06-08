@@ -192,14 +192,26 @@ func GetScpScript(user, host, port string) (str string) {
 		Host: host,
 	}
 
+	// The wrapper is invoked by the client's scp/sftp as the ssh replacement
+	// program: "<this> <ssh-options> -- <host> <command>". It collects the ssh
+	// options, extracts the login user / port, and detects whether the client is
+	// asking for the SFTP subsystem (ssh -s ... host sftp) or the legacy SCP
+	// sub-protocol (... host "scp -t/-f ..."), then re-invokes ssh into sb with
+	// the matching mode. sb stays a transparent pipe, so the single alias
+	// "scp -S ~/.<name>scp" (no -O) works for both modern (SFTP) and pre-9.0
+	// (legacy SCP) clients.
 	tpl := `#! /bin/sh
+sftp=0
 while ! [ "$1" = "--" ] ; do
 	if [ "$1" = "-l" ] ; then
 		user="$2"
 		shift 2
-	elif [ "\$1" = "-p" ] ; then
+	elif [ "$1" = "-p" ] ; then
 		port="$2"
 		shift 2
+	elif [ "$1" = "-s" ] ; then
+		sftp=1
+		shift
 	else
 		sshcmdline="$sshcmdline $1"
 		shift
@@ -212,7 +224,11 @@ fi
 if [ "x$port" != "x" ]; then
 	host="$host:$port"
 fi
-exec ssh -p {{.Port}} {{.User}}@{{.Host}} $sshcmdline -T -- scp --access $host --scp-cmd "\"$3\""
+if [ "$sftp" = "1" ] ; then
+	exec ssh -p {{.Port}} {{.User}}@{{.Host}} $sshcmdline -T -- scp --access $host --scp-cmd sftp
+else
+	exec ssh -p {{.Port}} {{.User}}@{{.Host}} $sshcmdline -T -- scp --access $host --scp-cmd "\"$3\""
+fi
 `
 
 	t, err := template.New("tpl").Parse(tpl)

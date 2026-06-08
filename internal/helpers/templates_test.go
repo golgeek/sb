@@ -34,13 +34,17 @@ func TestGetGroupSudoersTemplate(t *testing.T) {
 func TestGetScpScript(t *testing.T) {
 
 	expectedScript := `#! /bin/sh
+sftp=0
 while ! [ "$1" = "--" ] ; do
 	if [ "$1" = "-l" ] ; then
 		user="$2"
 		shift 2
-	elif [ "\$1" = "-p" ] ; then
+	elif [ "$1" = "-p" ] ; then
 		port="$2"
 		shift 2
+	elif [ "$1" = "-s" ] ; then
+		sftp=1
+		shift
 	else
 		sshcmdline="$sshcmdline $1"
 		shift
@@ -53,10 +57,21 @@ fi
 if [ "x$port" != "x" ]; then
 	host="$host:$port"
 fi
-exec ssh -p 22 test@sb.domain.tld $sshcmdline -T -- scp --access $host --scp-cmd "\"$3\""
+if [ "$sftp" = "1" ] ; then
+	exec ssh -p 22 test@sb.domain.tld $sshcmdline -T -- scp --access $host --scp-cmd sftp
+else
+	exec ssh -p 22 test@sb.domain.tld $sshcmdline -T -- scp --access $host --scp-cmd "\"$3\""
+fi
 `
 
 	require.Equal(t, expectedScript, GetScpScript("test", "sb.domain.tld", "22"), "The GetScpScript() function returned an unexpected SCP script")
+
+	// Guard against the historical regression where the -p test was emitted as
+	// the literal "\$1" (text/template does not interpret \$), which broke port
+	// handling. The corrected script must test "$1" and never contain "\$1".
+	script := GetScpScript("test", "sb.domain.tld", "22")
+	require.Contains(t, script, `elif [ "$1" = "-p" ] ;`, "the -p test must use $1, not a literal backslash")
+	require.NotContains(t, script, `\$1`, "the script must not contain a literal-backslash $1")
 }
 
 func TestTOTPFile(t *testing.T) {
