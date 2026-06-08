@@ -49,6 +49,17 @@ func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 		return repl, cmdError, types.ErrCommandDisabled
 	}
 
+	// Fail closed before touching the network: both of the features handled by
+	// this daemon encrypt secrets that leave the host with the configured
+	// encryption key. If that key is still unset or the shipped default, refuse
+	// to start rather than shipping TOTP secrets, recovery codes and session
+	// recordings under a key that is effectively public. The interactive login
+	// path deliberately does not run this check, so a default key never locks
+	// users out of the bastion shell; it only stops the exfiltrating daemon.
+	if err = config.ValidateSecretsEncryption(); err != nil {
+		return repl, cmdError, err
+	}
+
 	// We need to guess our own hostname
 	c.hostname, err = helpers.GetHostname()
 	if err != nil {

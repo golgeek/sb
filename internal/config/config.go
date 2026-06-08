@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/golgeek/sb/internal/types"
 	"github.com/spf13/viper"
@@ -12,6 +13,13 @@ var (
 	VERSION string
 	COMMIT  string
 )
+
+// DefaultEncryptionKey is the placeholder value shipped as the default for
+// general.encryption-key. It is intentionally a well-known string so that a
+// fresh install starts, but it must be changed before any feature that uses it
+// to protect secrets at rest or in transit is enabled. The same constant is
+// reused by the startup validation below so the two never drift apart.
+const DefaultEncryptionKey = "changemechangemechangemechangeme"
 
 // Initialize initializes the viper config and sets default values
 func init() {
@@ -36,7 +44,7 @@ func init() {
 			viper.SetDefault("general.env_vars_to_forward", []string{"USER"})
 			viper.SetDefault("general.sb_user", "sb")
 			viper.SetDefault("general.sb_user_home", "/home/sb")
-			viper.SetDefault("general.encryption-key", "changemechangemechangemechangeme")
+			viper.SetDefault("general.encryption-key", DefaultEncryptionKey)
 
 			// Commands configuration
 			viper.SetDefault("commands.ssh_command", "ttyrec")
@@ -127,6 +135,90 @@ func GetReplicationDatabasePath() string {
 // GetEncryptionKey returns the symmetric encryption key for backup, replication and ttyrecs offloading
 func GetEncryptionKey() string {
 	return viper.GetString("general.encryption-key")
+}
+
+// EncryptionKeyIsInsecure reports whether the configured encryption key offers
+// no real protection: it is true when the key is empty or still set to the
+// shipped placeholder (DefaultEncryptionKey). A key in either state is, in
+// practice, public knowledge, so anything encrypted with it must be treated as
+// plaintext.
+func EncryptionKeyIsInsecure() bool {
+	key := GetEncryptionKey()
+	return key == "" || key == DefaultEncryptionKey
+}
+
+// validEncryptionKeyByteLengths are the byte lengths AES accepts as a key
+// (AES-128, AES-192 and AES-256 respectively). general.encryption-key is used
+// directly as the AES key on the replication transport path
+// (models.EncryptReplicationDataForTransport), so it must be exactly one of
+// these. The file-encryption path (offloaded ttyrecs, backups) derives its key
+// via HKDF and so tolerates any non-empty length, but the documented contract
+// for general.encryption-key — and the startup guard below — require a valid
+// AES length whenever any feature that uses the key is enabled.
+var validEncryptionKeyByteLengths = map[int]bool{16: true, 24: true, 32: true}
+
+// EncryptionKeyHasValidLength reports whether key has a byte length usable as an
+// AES key (16, 24 or 32 bytes). It is the single source of truth shared by the
+// startup guard (ValidateSecretsEncryption) and the replication transport, so
+// the guard never accepts a key the transport would later reject.
+func EncryptionKeyHasValidLength(key string) bool {
+	return validEncryptionKeyByteLengths[len(key)]
+}
+
+// ValidateSecretsEncryption fails closed when a feature that uses the
+// encryption key to protect secrets is enabled while the key is unusable:
+// either insecure (empty or the shipped default) or set to a value AES cannot
+// use as a key (not 16, 24 or 32 bytes).
+//
+// The key protects two flows that move secrets off the host: replication
+// payloads (which carry TOTP secrets and recovery codes) pushed to the queue,
+// and TTYRec recordings offloaded to object storage. If neither flow is
+// enabled the key never guards anything that leaves the host, so its value does
+// not matter and this returns nil.
+//
+// When at least one flow is enabled it enforces, in order:
+//   - the key is not effectively public (empty or the shipped default), and
+//   - the key is a valid AES length.
+//
+// The length check matters because without it the daemon would start and only
+// fail later, mid-flight, when the replication path calls aes.NewCipher — after
+// secrets have already been queued. Both errors name the offending feature(s)
+// so the operator can fix general.encryption-key before any secret is shipped.
+//
+// It returns nil when the configuration is safe and a descriptive error
+// otherwise.
+func ValidateSecretsEncryption() error {
+	var enabledFeatures []string
+	if GetReplicationEnabled() {
+		enabledFeatures = append(enabledFeatures, "replication")
+	}
+	if GetTTYRecsOffloadingConfig().Enabled {
+		enabledFeatures = append(enabledFeatures, "ttyrecs offloading")
+	}
+
+	if len(enabledFeatures) == 0 {
+		return nil
+	}
+	features := strings.Join(enabledFeatures, " and ")
+
+	if EncryptionKeyIsInsecure() {
+		return fmt.Errorf(
+			"refusing to start: %s enabled but general.encryption-key is unset or still the default placeholder; "+
+				"these features encrypt secrets (TOTP secrets, recovery codes, session recordings) that leave this host, "+
+				"so set general.encryption-key to a unique 16, 24 or 32-byte value (shared across replicated instances) first",
+			features,
+		)
+	}
+
+	if !EncryptionKeyHasValidLength(GetEncryptionKey()) {
+		return fmt.Errorf(
+			"refusing to start: %s enabled but general.encryption-key is %d bytes; "+
+				"it must be exactly 16, 24 or 32 bytes (AES-128/192/256) to be usable as an encryption key",
+			features, len(GetEncryptionKey()),
+		)
+	}
+
+	return nil
 }
 
 func GetReplicationEnabled() bool {

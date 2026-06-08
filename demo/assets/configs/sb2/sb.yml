@@ -12,7 +12,7 @@ general:
   name: sbdemo_i2
   ssh_port: 22002
   location: "us"
-  encryption-key: changemechangemechangemechangeme
+  encryption-key: demo-only-not-secret-change-me!!
 
 replication:
   enabled: true
