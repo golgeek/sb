@@ -18,6 +18,12 @@ will result in:
 
 Note that enabling the replication also means [starting the associated daemon](./installation.md#setup-the-daemon).
 
+> **Important:** the encrypted replication payloads carry secrets (including TOTP secrets and
+> recovery codes), so the daemon **refuses to start** if replication (or TTYRecs offloading)
+> is enabled while [`general.encryption-key`](./configuration.md#general) is left empty or at
+> the shipped placeholder. Set a real, unique key — **shared across all instances** so they
+> can decrypt each other's payloads — before enabling replication.
+
 This daemon executes three processes:
 1. query the replication database and push the entries to a message queue
 2. listen to the message queue and perform the replication actions for each entry it receives

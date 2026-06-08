@@ -40,7 +40,18 @@ general:
 - `mosh_port_range` (string): the UDP range ports that [Mosh](https://github.com/mobile-shell/mosh) can use
 - `env_vars_to_forward` ([]string): the environment variables that `sb` will forward to a distant host
 - `encryption-key` (string): the encryption key for replication, TTYRecs offloading and backups; 
-  it must be either 16, 24 or 32 characters
+  it must be either 16, 24 or 32 characters.
+
+  > **Important:** this key protects secrets that leave the host — replication payloads
+  > carry TOTP secrets and recovery codes, and offloaded session recordings can contain
+  > sensitive output. If you enable **replication** or **TTYRecs offloading** while this key
+  > is left empty or at the shipped placeholder (`changemechangemechangemechangeme`), the
+  > replication/offloading daemon (`sb -d`) **refuses to start** and tells you to set a real
+  > key. The interactive login path is unaffected, so users are never locked out of the
+  > bastion. Replicated instances must share the **same** key so they can decrypt each
+  > other's payloads. To rotate it, set the new value on every instance and restart the
+  > daemon on each; in-flight payloads encrypted with the old key must be drained (or
+  > discarded) before the old key is removed.
 
 ## Replication
 

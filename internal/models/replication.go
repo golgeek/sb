@@ -82,9 +82,13 @@ func EncryptReplicationDataForTransport(data ReplicationData) (encrypted string,
 
 	cipherKey := config.GetEncryptionKey()
 
-	cipherKeyLen := len(cipherKey)
-	if cipherKeyLen != 8 && cipherKeyLen != 16 && cipherKeyLen != 32 {
-		err = fmt.Errorf("cipher key is invalid")
+	// The key is used directly as the AES key below, so it must be a valid AES
+	// length. This shares config's source of truth with the daemon startup guard
+	// (config.ValidateSecretsEncryption), which is why the previous hand-written
+	// check here was wrong in both directions: it accepted 8 bytes (which
+	// aes.NewCipher rejects anyway) and rejected 24 bytes (valid AES-192).
+	if !config.EncryptionKeyHasValidLength(cipherKey) {
+		err = fmt.Errorf("cipher key must be 16, 24 or 32 bytes, got %d", len(cipherKey))
 		return
 	}
 
