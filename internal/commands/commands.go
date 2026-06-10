@@ -242,65 +242,12 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 		ct.Group = grp
 	}
 
-	// Now, let's check the rights!
-	switch commandRightsLevel {
-	case models.Public:
-		// Nothing to do
-	case models.Private:
-
-		// Private commands must be run by root
-		if ct.User.User.Username != "root" {
-			err = fmt.Errorf("only root user can execute this command on sb")
-			return
-		}
-
-	case models.HasAccess:
-		host, ok := ct.FormattedArguments["access"]
-		if ok && host != "" {
-			ba, err := models.BuildSBAccessFromUserInput(host)
-			if err != nil {
-				return bc, ct, err
-			}
-
-			logAuditWarn(log.SetTargetAccess(ba))
-
-			ai, err := user.HasAccess(ba)
-			if err != nil {
-				return bc, ct, err
-			}
-			if !ai.Authorized {
-				logAuditWarn(log.SetAllowed(false))
-				return bc, ct, fmt.Errorf("user can't access the host %s", ba.ShortString())
-			}
-
-			ct.AI = ai
-			ct.BA = ba
-		}
-	case models.GroupMember:
-		if !user.IsMemberOfGroup(grp.Name) {
-			logAuditWarn(log.SetAllowed(false))
-			return bc, ct, fmt.Errorf("user is not a member of the group")
-		}
-	case models.GroupACLKeeper:
-		if !user.IsACLKeeperOfGroup(grp.Name) {
-			logAuditWarn(log.SetAllowed(false))
-			return bc, ct, fmt.Errorf("user is not an ACL keeper of the group")
-		}
-	case models.GroupGateKeeper:
-		if !user.IsGateKeeperOfGroup(grp.Name) {
-			logAuditWarn(log.SetAllowed(false))
-			return bc, ct, fmt.Errorf("user is not a gate keeper of the group")
-		}
-	case models.GroupOwner:
-		if !user.IsOwnerOfGroup(grp.Name) && !user.IsOwnerOfGroup("owners") {
-			logAuditWarn(log.SetAllowed(false))
-			return bc, ct, fmt.Errorf("user is not an owner of the group")
-		}
-	case models.SBOwner:
-		if !user.IsOwnerOfGroup("owners") && user.User.Uid != "0" {
-			logAuditWarn(log.SetAllowed(false))
-			return bc, ct, fmt.Errorf("user is not a sb owner")
-		}
+	// Now, let's check the rights! This is the single authorization gate on
+	// the dispatch path; the decision logic lives in authorize (authorize.go)
+	// so it can be unit tested hermetically.
+	err = newAuthorizer().authorize(user, commandRightsLevel, ct)
+	if err != nil {
+		return
 	}
 
 	// Call the check method
