@@ -158,8 +158,56 @@ func AddUser(homedir, username, shellPath string) (err error) {
 	return
 }
 
-// CreateHomeSkeleton creates user home
+// CreateHomeSkeleton creates the home-directory layout of a freshly created
+// user or group account (its .ssh directory, databases, ttyrecs directory,
+// ...), delegating every filesystem mutation to sudo with the exact argument
+// shapes whitelisted in the sudoers templates.
+//
+// Existence is probed with os.Stat run as the *calling* user, which is often
+// an unprivileged sb owner (account and group creation are SBOwner-level
+// commands, not root-only). Such a caller typically cannot see inside the new
+// account's home directory, so a stat there fails with a permission error,
+// not with "does not exist". Only a successful stat may skip the creation
+// step: any stat failure falls back to attempting the (whitelisted, sudo-run)
+// creation. A previous version skipped creation unless the failure was
+// specifically os.IsNotExist, which silently dropped the mkdir/touch for
+// non-root callers and made the subsequent chmod fail on the missing path —
+// breaking account and group creation for everyone but root.
 func CreateHomeSkeleton(homedir string, username string, homeType string) (err error) {
+
+	commands, err := homeSkeletonCommands(homedir, username, homeType, func(path string) bool {
+		_, statErr := os.Stat(path)
+		return statErr == nil
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, command := range commands {
+		err := runCommand(command[0], command[1:]...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return
+}
+
+// homeSkeletonCommands computes the ordered list of privileged commands that
+// lay out a user or group home skeleton. It is pure (no filesystem access, no
+// exec) so the command plan can be unit tested: the pathExists probe is
+// injected by the caller precisely because probing is caller-dependent (see
+// CreateHomeSkeleton). Each returned command is an argv slice starting with
+// /usr/bin/sudo, and every shape must stay in lockstep with the sudoers
+// templates in templates.go — a command that drifts from the whitelist fails
+// in production.
+//
+// homeType selects the layout ("user" or "group"); any other value returns an
+// error. Creation commands run as the target username via sudo -u and are
+// emitted only when pathExists cannot positively confirm the path; chmod and
+// chown always run so ownership and modes converge even on pre-existing
+// paths.
+func homeSkeletonCommands(homedir, username, homeType string, pathExists func(string) bool) (commands [][]string, err error) {
 
 	type pathConfiguration struct {
 		action string
@@ -186,15 +234,18 @@ func CreateHomeSkeleton(homedir string, username string, homeType string) (err e
 			pathConfiguration{action: "/usr/bin/touch", path: "accesses.db", chmod: "0664", chown: fmt.Sprintf("%s:%s-aclk", username, username)},
 		)
 	default:
-		return fmt.Errorf("invalid home type %s", homeType)
+		return nil, fmt.Errorf("invalid home type %s", homeType)
 	}
 
+	commands = make([][]string, 0, 3*len(pathConfigurations))
 	for _, pathConf := range pathConfigurations {
 		fullPath := fmt.Sprintf("%s/%s", homedir, pathConf.path)
-		commands := make([][]string, 0)
 
-		// If path doesn't exist, we create it
-		if _, err := os.Stat(fullPath); os.IsNotExist(err) {
+		// Create the path unless it positively exists. Failing toward
+		// creation is the safe direction: the creation command is whitelisted
+		// in sudoers and fails loudly if the path is truly already there,
+		// whereas skipping it leaves the skeleton incomplete.
+		if !pathExists(fullPath) {
 			commands = append(commands, []string{"/usr/bin/sudo", "-u", username, pathConf.action, fullPath})
 		}
 
@@ -203,15 +254,9 @@ func CreateHomeSkeleton(homedir string, username string, homeType string) (err e
 			[]string{"/usr/bin/sudo", "/bin/chmod", pathConf.chmod, fullPath},
 			[]string{"/usr/bin/sudo", "/bin/chown", pathConf.chown, fullPath},
 		)
-		for _, command := range commands {
-			err := runCommand(command[0], command[1:]...)
-			if err != nil {
-				return err
-			}
-		}
 	}
 
-	return
+	return commands, nil
 }
 
 // DeleteAccount deletes a group from the system
