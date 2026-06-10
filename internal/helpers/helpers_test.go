@@ -124,6 +124,51 @@ func TestParseArgumentsMosh(t *testing.T) {
 
 }
 
+// TestParseArgumentsMoshMalformed guards the degenerate mosh command lines that
+// previously panicked with an index-out-of-range. This input comes from the
+// SSH-forced command and is parsed before any authorization, so a panic here
+// was a denial of service reachable by any caller. A bare "mosh-server" must
+// now return a clean error, and "mosh-server new" (which consumes every token,
+// leaving an empty slice for RegroupCommandArguments) must parse without
+// panicking.
+func TestParseArgumentsMoshMalformed(t *testing.T) {
+
+	tests := []testParseArguments{
+		{
+			i: []string{"sb", "-c", "mosh-server"},
+			o: testParseArgumentsOutputData{
+				err: fmt.Errorf("malformed mosh-server command line: missing arguments after \"mosh-server\""),
+			},
+		},
+		{
+			// "new" is consumed, leaving no further tokens; this must not panic
+			// in RegroupCommandArguments and yields the mosh client with no
+			// remaining command.
+			i: []string{"sb", "-c", "mosh-server new"},
+			o: testParseArgumentsOutputData{
+				client:          "mosh",
+				clientArguments: []string{"-c", "8"},
+				arguments:       []string{}, // empty, but crucially not a panic
+			},
+		},
+	}
+
+	for i, test := range tests {
+		c, ca, ba, a, err := ParseArguments(test.i)
+		if test.o.err == nil {
+			require.NoError(t, err, fmt.Sprintf("There was an unexpected error parsing arguments on test %d", i+1))
+		} else {
+			require.EqualError(t, err, test.o.err.Error(), fmt.Sprintf("An error should have been returned on test %d", i+1))
+			continue
+		}
+
+		require.Equal(t, test.o.client, c, fmt.Sprintf("The client has been badly computed on test %d", i+1))
+		require.Equal(t, test.o.clientArguments, ca, fmt.Sprintf("The client arguments were badly computed on test %d", i+1))
+		require.Equal(t, test.o.sbArguments, ba, fmt.Sprintf("The sb arguments were badly computed on test %d", i+1))
+		require.Equal(t, test.o.arguments, a, fmt.Sprintf("The remaining arguments were badly computed on test %d", i+1))
+	}
+}
+
 func TestParseArgumentsSBArguments(t *testing.T) {
 
 	tests := []testParseArguments{
