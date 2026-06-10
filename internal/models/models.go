@@ -20,10 +20,23 @@ func GetAccessGormDB(database string) (db *gorm.DB, err error) {
 		return
 	}
 
-	// Migrate the schema (this will create table or alter table if needed)
+	// Migrate the schema (this will create table or alter table if needed).
+	// Migration is a write, and not every legitimate caller may write this
+	// database: a group's accesses database is writable by its ACL keepers
+	// only, while plain members open it read-only (listing the group's
+	// accesses, resolving a group-granted host connection). For such readers
+	// the migration fails with a read-only error even though the schema is
+	// already in place. Only tolerate that failure when the table verifiably
+	// exists: the database was then provisioned by a writable caller, and a
+	// genuinely incompatible schema still surfaces as a loud query error. An
+	// unprovisioned database (no table) keeps failing here, read-only or not.
 	if err = db.AutoMigrate(&Access{}); err != nil {
-		err = fmt.Errorf("failed to migrate access schema for %s: %w", database, err)
-		return
+		if db.Migrator().HasTable(&Access{}) {
+			err = nil
+		} else {
+			err = fmt.Errorf("failed to migrate access schema for %s: %w", database, err)
+			return
+		}
 	}
 
 	return
