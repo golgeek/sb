@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/spf13/viper"
@@ -138,4 +139,34 @@ func TestGetEgressStrictHostKeyChecking(t *testing.T) {
 		require.Equal(t, defaultEgressStrictHostKeyChecking, GetEgressStrictHostKeyChecking())
 		require.NotEmpty(t, GetEgressStrictHostKeyChecking())
 	})
+}
+
+// TestSetDefaultsAppliedAlongsidePartialConfig is the regression test for the
+// bug this change fixes: defaults must apply even when a config file is present
+// but only sets some keys. It drives a fresh viper instance (so it never touches
+// the process-wide one) exactly as init() does — register the defaults, then
+// read a config — and asserts that a key set in the file wins while an omitted
+// key still resolves to its default. Before the fix the defaults were only
+// registered when no config file existed, so the omitted key would have
+// resolved to "".
+func TestSetDefaultsAppliedAlongsidePartialConfig(t *testing.T) {
+	v := viper.New()
+	v.SetConfigType("yaml")
+
+	setDefaults(v)
+
+	// A config file that sets only general.name and leaves everything else out.
+	partialConfig := []byte("general:\n  name: custom-bastion\n")
+	require.NoError(t, v.ReadConfig(bytes.NewReader(partialConfig)))
+
+	// The key present in the file overrides its default...
+	require.Equal(t, "custom-bastion", v.GetString("general.name"))
+
+	// ...while keys omitted from the file still resolve to their defaults rather
+	// than the empty string. commands.ssh_command in particular must stay
+	// "ttyrec": main.go uses it to dispatch host connections.
+	require.Equal(t, "ttyrec", v.GetString("commands.ssh_command"))
+	require.Equal(t, "/opt/sb/sb", v.GetString("general.binary_path"))
+	require.Equal(t, "22", v.GetString("general.ssh_port"))
+	require.Equal(t, "sb", v.GetString("general.sb_user"))
 }

@@ -29,48 +29,72 @@ func init() {
 	viper.AddConfigPath(".")
 	viper.AddConfigPath("/etc/sb")
 
-	err := viper.ReadInConfig()
-	if err != nil {
+	// Register the built-in defaults unconditionally, BEFORE reading the config
+	// file. viper applies defaults at its lowest precedence, so a value present
+	// in the config file still overrides the corresponding default — but the
+	// defaults must be registered regardless of whether a config file exists.
+	//
+	// Previously these SetDefault calls lived inside the ConfigFileNotFoundError
+	// branch below, so they only ran when NO config file was found. In the normal
+	// production case — a config file is present but omits some keys — none of the
+	// defaults were registered, and every omitted key silently resolved to its
+	// zero value instead of the intended default. For example commands.ssh_command
+	// became "" instead of "ttyrec", which main.go relies on to dispatch a host
+	// connection. Registering them up front fixes that whole class of bug.
+	setDefaults(viper.GetViper())
 
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-
-			// General instance configuration
-			viper.SetDefault("general.name", "sb")
-			viper.SetDefault("general.location", "earth")
-			viper.SetDefault("general.hostname", "sb.domain.tld")
-			viper.SetDefault("general.binary_path", "/opt/sb/sb")
-			viper.SetDefault("general.ssh_port", "22")
-			viper.SetDefault("general.mosh_ports_range", "40000:49999")
-			viper.SetDefault("general.env_vars_to_forward", []string{"USER"})
-			viper.SetDefault("general.sb_user", "sb")
-			viper.SetDefault("general.sb_user_home", "/home/sb")
-			viper.SetDefault("general.encryption-key", DefaultEncryptionKey)
-			viper.SetDefault("general.egress_strict_host_key_checking", defaultEgressStrictHostKeyChecking)
-
-			// Commands configuration
-			viper.SetDefault("commands.ssh_command", "ttyrec")
-
-			// Replication configuration
-			viper.SetDefault("replication.enabled", false)
-			viper.SetDefault("replication.queue.type", "")
-			viper.SetDefault("replication.queue.googlepubsub.project", "")
-			viper.SetDefault("replication.queue.googlepubsub.topic", "")
-
-			// TTYrecs offloading configuration
-			viper.SetDefault("ttyrecsoffloading.enabled", false)
-			viper.SetDefault("ttyrecsoffloading.storage.type", "")
-			viper.SetDefault("ttyrecsoffloading.storage.gcs.bucket", "")
-			viper.SetDefault("ttyrecsoffloading.storage.gcs.objects-base-path", "")
-			viper.SetDefault("ttyrecsoffloading.storage.gcs.endpoint-url", "")
-			viper.SetDefault("ttyrecsoffloading.storage.s3.bucket", "")
-			viper.SetDefault("ttyrecsoffloading.storage.s3.keys-base-path", "")
-
-		} else {
-
-			os.Exit(-1)
-
+	if err := viper.ReadInConfig(); err != nil {
+		// A missing config file is expected and harmless: the defaults registered
+		// above keep sb working. Any other error means a config file exists but
+		// could not be read or parsed (e.g. malformed YAML); fail loudly with a
+		// diagnostic instead of the previous silent os.Exit(-1), which gave the
+		// operator no clue why sb refused to start.
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			fmt.Fprintf(os.Stderr, "unable to read sb configuration: %s\n", err)
+			os.Exit(1)
 		}
 	}
+}
+
+// setDefaults registers every built-in configuration default on v. It is called
+// unconditionally at startup so that the defaults apply whether or not a config
+// file is present and regardless of which keys that file sets; values from the
+// config file override these because viper ranks defaults at the lowest
+// precedence. It takes the viper instance explicitly (rather than using the
+// package-level functions) so it can be exercised hermetically in tests against
+// a fresh viper.New() without disturbing the process-wide instance.
+func setDefaults(v *viper.Viper) {
+
+	// General instance configuration
+	v.SetDefault("general.name", "sb")
+	v.SetDefault("general.location", "earth")
+	v.SetDefault("general.hostname", "sb.domain.tld")
+	v.SetDefault("general.binary_path", "/opt/sb/sb")
+	v.SetDefault("general.ssh_port", "22")
+	v.SetDefault("general.mosh_ports_range", "40000:49999")
+	v.SetDefault("general.env_vars_to_forward", []string{"USER"})
+	v.SetDefault("general.sb_user", "sb")
+	v.SetDefault("general.sb_user_home", "/home/sb")
+	v.SetDefault("general.encryption-key", DefaultEncryptionKey)
+	v.SetDefault("general.egress_strict_host_key_checking", defaultEgressStrictHostKeyChecking)
+
+	// Commands configuration
+	v.SetDefault("commands.ssh_command", "ttyrec")
+
+	// Replication configuration
+	v.SetDefault("replication.enabled", false)
+	v.SetDefault("replication.queue.type", "")
+	v.SetDefault("replication.queue.googlepubsub.project", "")
+	v.SetDefault("replication.queue.googlepubsub.topic", "")
+
+	// TTYrecs offloading configuration
+	v.SetDefault("ttyrecsoffloading.enabled", false)
+	v.SetDefault("ttyrecsoffloading.storage.type", "")
+	v.SetDefault("ttyrecsoffloading.storage.gcs.bucket", "")
+	v.SetDefault("ttyrecsoffloading.storage.gcs.objects-base-path", "")
+	v.SetDefault("ttyrecsoffloading.storage.gcs.endpoint-url", "")
+	v.SetDefault("ttyrecsoffloading.storage.s3.bucket", "")
+	v.SetDefault("ttyrecsoffloading.storage.s3.keys-base-path", "")
 }
 
 // GetSBName returns sb's name (AKA the alias to set in user's path)
