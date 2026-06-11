@@ -13,18 +13,22 @@ import (
 type GroupListAccesses struct{}
 
 func init() {
-	commands.RegisterCommand("group accesses list", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupListAccesses), models.GroupMember, helpers.Helper{
-				Header:      "list the hosts accessible to a group",
-				Usage:       "group accesses list --group 'GROUP-NAME'",
-				Description: "list the hosts accessible to a group",
-				Aliases:     []string{"groupListAccesses"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The group name you want accesses from",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group accesses list",
+		Aliases: []string{"groupListAccesses"},
+		Rights:  models.GroupMember,
+		Help: helpers.Helper{
+			Header:      "list the hosts accessible to a group",
+			Usage:       "group accesses list --group 'GROUP-NAME'",
+			Description: "list the hosts accessible to a group",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The group name you want accesses from",
+			},
+		},
+		New: func() commands.Command { return new(GroupListAccesses) },
 	})
 }
 

@@ -12,6 +12,8 @@ import (
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 	"github.com/golgeek/sb/internal/types"
+
+	"github.com/spf13/cobra"
 )
 
 // Run gocyclo
@@ -73,9 +75,6 @@ func main() {
 
 	}
 
-	// Load commands (this is actually an empty func just used to iterate over all cmd/*.go init() funcs)
-	cmd.LoadCommands()
-
 	// Parse the command line
 	client, clientArguments, sbArguments, arguments, err := helpers.ParseArguments(os.Args)
 	if err != nil {
@@ -120,15 +119,32 @@ func main() {
 		arguments = []string{"help"}
 	}
 
-	cmd := arguments[0]
-	if commands.IsAPublicCommand(cmd) {
+	first := arguments[0]
+	if commands.IsCommandToken(first) {
 
-		// We are on a trusted command, we give it all the remaining args
-		err = commands.BuildAndExecuteSBCommand(log, currentUser, arguments...)
+		// The command line addresses the command system: translate a
+		// camelCase alias (or a shell-quoted multi-word name) to canonical
+		// words and let the generated cobra tree parse, authorize and execute
+		// it. Building the tree also guarantees the cmd package's command
+		// registrations ran.
+		root := cmd.BuildRootCommand(log, currentUser)
+		root.SetArgs(commands.CanonicalTokens(arguments))
+
+		// TerminateSession prints the error exactly as before; cobra must
+		// not double-print it, and an execution failure must not dump usage.
+		// A flag parse error, however, IS a usage problem, so it carries the
+		// failing command's usage text with it.
+		root.SilenceErrors = true
+		root.SilenceUsage = true
+		root.SetFlagErrorFunc(func(c *cobra.Command, flagErr error) error {
+			return fmt.Errorf("%w\n%s", flagErr, c.UsageString())
+		})
+
+		err = root.Execute()
 
 	} else {
 
-		if !models.IsAValidSBAccessFromUserInput(cmd) {
+		if !models.IsAValidSBAccessFromUserInput(first) {
 			TerminateSession(log, types.ErrUnknownCommand)
 		}
 

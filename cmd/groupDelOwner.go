@@ -12,22 +12,26 @@ import (
 type GroupDelOwner struct{}
 
 func init() {
-	commands.RegisterCommand("group owner remove", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupDelOwner), models.GroupOwner, helpers.Helper{
-				Header:      "remove an account from the owners of a group",
-				Usage:       "group owner remove --account USERNAME --group GROUP",
-				Description: "remove an account from the owners of a group",
-				Aliases:     []string{"groupDelOwner"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which remove the account from",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group owner remove",
+		Aliases: []string{"groupDelOwner"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "remove an account from the owners of a group",
+			Usage:       "group owner remove --account USERNAME --group GROUP",
+			Description: "remove an account from the owners of a group",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which remove the account from",
+			},
+		},
+		New: func() commands.Command { return new(GroupDelOwner) },
 	})
 }
 

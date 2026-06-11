@@ -11,12 +11,13 @@ import (
 	"strings"
 )
 
-// Helper describes the basic properties of a sb Helper type
+// Helper describes the basic properties of a sb Helper type. Command aliases
+// live on the command spec (commands.CommandSpec.Aliases), not here: the
+// helper only carries display texts.
 type Helper struct {
 	Header      string
 	Usage       string
 	Description string
-	Aliases     []string
 }
 
 // ParseArguments parses the os.Args arguments
@@ -128,8 +129,6 @@ func ParseArguments(clArgs []string) (c string, ca []string, ba map[string]bool,
 			ca = append(ca, "-l", *lang)
 		}
 	}
-
-	clArgs = RegroupCommandArguments(clArgs)
 
 	// Here, we will introduce the parsing of sb arguments
 	sbFlagSet := flag.NewFlagSet("sb", flag.ContinueOnError)

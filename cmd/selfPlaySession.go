@@ -17,18 +17,22 @@ import (
 type SelfPlaySession struct{}
 
 func init() {
-	commands.RegisterCommand("self session replay", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfPlaySession), models.Public, helpers.Helper{
-				Header:      "watch a recording of an SSH session",
-				Usage:       "self session replay",
-				Description: "watch a recording of an SSH session",
-				Aliases:     []string{"selfPlaySession"},
-			}, map[string]commands.Argument{
-				"session-id": {
-					Required:    true,
-					Description: "The session recording ID to watch",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "self session replay",
+		Aliases: []string{"selfPlaySession"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "watch a recording of an SSH session",
+			Usage:       "self session replay",
+			Description: "watch a recording of an SSH session",
+		},
+		Args: map[string]commands.Argument{
+			"session-id": {
+				Required:    true,
+				Description: "The session recording ID to watch",
+			},
+		},
+		New: func() commands.Command { return new(SelfPlaySession) },
 	})
 }
 

@@ -25,11 +25,27 @@ type commandTestStructureInputData struct {
 	user      *models.User
 }
 
-func TestIsATrustedCommand(t *testing.T) {
+// TestTrustedCommandVisibility asserts the trusted commands resolve through
+// the flat registry (the front-end and the replication-apply path need them)
+// while staying invisible to user-facing dispatch: IsCommandToken refuses
+// their names, so they fall through to the access path exactly like an
+// unknown word.
+func TestTrustedCommandVisibility(t *testing.T) {
 
-	require.Equal(t, true, commands.IsAPublicCommand("self accesses list"), "The command self accesses list is a public command")
-	require.Equal(t, false, commands.IsAPublicCommand("INVALID_COMMAND"), "The command INVALID_COMMAND is not a public command")
-	require.Equal(t, false, commands.IsAPublicCommand("ttyrec"), "The command INVALID_COMMAND is not a public command")
+	spec, err := commands.GetSpec("self accesses list")
+	require.NoError(t, err, "public commands resolve through the registry")
+	require.False(t, spec.Trusted)
+	require.True(t, commands.IsCommandToken("self"), "first word of a public command dispatches")
+
+	_, err = commands.GetSpec("INVALID_COMMAND")
+	require.Error(t, err, "unknown names do not resolve")
+
+	for _, trusted := range []string{"interactive", "ttyrec", "daemon"} {
+		spec, err := commands.GetSpec(trusted)
+		require.NoError(t, err, "trusted command %q must resolve through the flat registry", trusted)
+		require.True(t, spec.Trusted, "%q must be marked trusted", trusted)
+		require.False(t, commands.IsCommandToken(trusted), "%q must not be user-dispatchable", trusted)
+	}
 }
 
 func TestBuildSBCommand(t *testing.T) {

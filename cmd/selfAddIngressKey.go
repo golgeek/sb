@@ -14,18 +14,22 @@ import (
 type SelfAddIngressKey struct{}
 
 func init() {
-	commands.RegisterCommand("self ingress-key add", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfAddIngressKey), models.Public, helpers.Helper{
-				Header:      "add a new public ingress key (you -> sb) to your account",
-				Usage:       "self ingress-key add [--public-key 'KEY']",
-				Description: "add a new public ingress key (you -> sb) to your account",
-				Aliases:     []string{"selfAddIngressKey"},
-			}, map[string]commands.Argument{
-				"public-key": {
-					Required:    false,
-					Description: "Your new public SSH key to deposit on sb (you will need to '\"double escape it\"'); if not present, you'll be prompted for it",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "self ingress-key add",
+		Aliases: []string{"selfAddIngressKey"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "add a new public ingress key (you -> sb) to your account",
+			Usage:       "self ingress-key add [--public-key 'KEY']",
+			Description: "add a new public ingress key (you -> sb) to your account",
+		},
+		Args: map[string]commands.Argument{
+			"public-key": {
+				Required:    false,
+				Description: "Your new public SSH key to deposit on sb (you will need to '\"double escape it\"'); if not present, you'll be prompted for it",
+			},
+		},
+		New: func() commands.Command { return new(SelfAddIngressKey) },
 	})
 }
 

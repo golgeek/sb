@@ -17,18 +17,22 @@ import (
 type SelfDelIngressKey struct{}
 
 func init() {
-	commands.RegisterCommand("self ingress-key delete", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfDelIngressKey), models.Public, helpers.Helper{
-				Header:      "delete a public ingress key (you -> sb) from your account",
-				Usage:       "self ingress-key delete [--public-key 'KEY']",
-				Description: "delete a public ingress key (you -> sb) from your account",
-				Aliases:     []string{"selfDelIngressKey"},
-			}, map[string]commands.Argument{
-				"public-key": {
-					Required:    false,
-					Description: "The ingress (you -> sb) public SSH key to delete from the sb (you will need to '\"double escape it\"'); if not present, you'll be prompted for it",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "self ingress-key delete",
+		Aliases: []string{"selfDelIngressKey"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "delete a public ingress key (you -> sb) from your account",
+			Usage:       "self ingress-key delete [--public-key 'KEY']",
+			Description: "delete a public ingress key (you -> sb) from your account",
+		},
+		Args: map[string]commands.Argument{
+			"public-key": {
+				Required:    false,
+				Description: "The ingress (you -> sb) public SSH key to delete from the sb (you will need to '\"double escape it\"'); if not present, you'll be prompted for it",
+			},
+		},
+		New: func() commands.Command { return new(SelfDelIngressKey) },
 	})
 }
 

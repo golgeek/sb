@@ -12,30 +12,34 @@ import (
 type GroupDelAccess struct{}
 
 func init() {
-	commands.RegisterCommand("group access remove", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupDelAccess), models.GroupACLKeeper, helpers.Helper{
-				Header:      "remove a group access to a distant host",
-				Usage:       "group access delete --group GROUP-NAME --host HOST --user USER --port PORT",
-				Description: "remove a group access to a distant host",
-				Aliases:     []string{"groupDelAccess"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The group name you want to add an access for",
-				},
-				"host": {
-					Required:    true,
-					Description: "An IP, IP range or hostname you're granting access to",
-				},
-				"user": {
-					Required:    true,
-					Description: "The user you're granting access to",
-				},
-				"port": {
-					Required:    true,
-					Description: "The port you're granting access to",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group access remove",
+		Aliases: []string{"groupDelAccess"},
+		Rights:  models.GroupACLKeeper,
+		Help: helpers.Helper{
+			Header:      "remove a group access to a distant host",
+			Usage:       "group access delete --group GROUP-NAME --host HOST --user USER --port PORT",
+			Description: "remove a group access to a distant host",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The group name you want to add an access for",
+			},
+			"host": {
+				Required:    true,
+				Description: "An IP, IP range or hostname you're granting access to",
+			},
+			"user": {
+				Required:    true,
+				Description: "The user you're granting access to",
+			},
+			"port": {
+				Required:    true,
+				Description: "The port you're granting access to",
+			},
+		},
+		New: func() commands.Command { return new(GroupDelAccess) },
 	})
 }
 

@@ -16,39 +16,43 @@ import (
 type CreateGroup struct{}
 
 func init() {
-	commands.RegisterCommand("group create", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(CreateGroup), models.SBOwner, helpers.Helper{
-				Header:      "create a new group on sb",
-				Usage:       "group create --name NAME --owner-account USERNAME --algo ALGO --size SIZE [--encrypted]",
-				Description: "create a new group on sb",
-				Aliases:     []string{"createGroup"},
-			}, map[string]commands.Argument{
-				"name": {
-					Required:    true,
-					Description: "The name of the group",
-				},
-				"owner-account": {
-					Required:    true,
-					Description: "The username of the group's owner account",
-				},
-				"algo": {
-					Required:      true,
-					Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
-					AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
-				},
-				"size": {
-					Required: true,
-					Description: `Size of the key to generate:
+	commands.Register(commands.CommandSpec{
+		Name:    "group create",
+		Aliases: []string{"createGroup"},
+		Rights:  models.SBOwner,
+		Help: helpers.Helper{
+			Header:      "create a new group on sb",
+			Usage:       "group create --name NAME --owner-account USERNAME --algo ALGO --size SIZE [--encrypted]",
+			Description: "create a new group on sb",
+		},
+		Args: map[string]commands.Argument{
+			"name": {
+				Required:    true,
+				Description: "The name of the group",
+			},
+			"owner-account": {
+				Required:    true,
+				Description: "The username of the group's owner account",
+			},
+			"algo": {
+				Required:      true,
+				Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
+				AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
+			},
+			"size": {
+				Required: true,
+				Description: `Size of the key to generate:
 	- for RSA, choose between 2048 and 8192 (4096 is good)
 	- for ECDSA, choose either 256, 384 or 521
 	- for ED25519, size is always 256`,
-				},
-				"encrypted": {
-					Required:    false,
-					Description: "If specified, a passphrase will be prompted for the new key",
-					Type:        commands.BOOL,
-				},
-			}
+			},
+			"encrypted": {
+				Required:    false,
+				Description: "If specified, a passphrase will be prompted for the new key",
+				Type:        commands.BOOL,
+			},
+		},
+		New: func() commands.Command { return new(CreateGroup) },
 	})
 }
 

@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	osuser "os/user"
 	"testing"
 
 	"github.com/golgeek/sb/internal/commands"
+	"github.com/golgeek/sb/internal/models"
 
 	"github.com/stretchr/testify/require"
 )
@@ -71,12 +73,14 @@ var replicationNameContract = map[string][]string{
 func TestReplicationNameCompatibility(t *testing.T) {
 
 	for canonical, aliases := range replicationNameContract {
-		_, _, _, _, err := commands.GetCommand(canonical)
+		spec, err := commands.GetSpec(canonical)
 		require.NoError(t, err, "canonical name %q must resolve", canonical)
+		require.Equal(t, canonical, spec.Name)
 
 		for _, alias := range aliases {
-			_, _, _, _, err := commands.GetCommand(alias)
+			byAlias, err := commands.GetSpec(alias)
 			require.NoError(t, err, "alias %q (of %q) must resolve", alias, canonical)
+			require.Same(t, spec, byAlias, "alias %q must resolve to the same spec as %q", alias, canonical)
 		}
 	}
 }
@@ -86,12 +90,39 @@ func TestReplicationNameCompatibility(t *testing.T) {
 // forces a deliberate decision about its replication identity.
 func TestRegistryHasNoUnlistedCommands(t *testing.T) {
 
-	registered := commands.GetCommands()
+	registered := commands.Specs()
 	require.Len(t, registered, len(replicationNameContract),
 		"command registered without updating the replication name contract table")
 
-	for name := range registered {
-		_, ok := replicationNameContract[name]
-		require.True(t, ok, "registered command %q is missing from the contract table", name)
+	for _, spec := range registered {
+		aliases, ok := replicationNameContract[spec.Name]
+		require.True(t, ok, "registered command %q is missing from the contract table", spec.Name)
+		require.ElementsMatch(t, aliases, spec.Aliases,
+			"aliases of %q diverged from the contract table", spec.Name)
+	}
+}
+
+// TestProductionTreeExcludesTrustedCommands builds the real cobra tree from
+// the production registry and asserts the trusted commands are absent from
+// it: not invocable, not completable, not suggestible. They remain reachable
+// only through the flat registry used by the front-end and the
+// replication-apply path.
+func TestProductionTreeExcludesTrustedCommands(t *testing.T) {
+
+	user := &models.User{User: &osuser.User{Username: "tester", Uid: "1000"}}
+	root := BuildRootCommand(&models.Log{}, user)
+
+	present := make(map[string]bool)
+	for _, child := range root.Commands() {
+		present[child.Name()] = true
+	}
+
+	for _, trusted := range []string{"interactive", "ttyrec", "daemon"} {
+		require.False(t, present[trusted], "trusted command %q must not appear in the cobra tree", trusted)
+	}
+
+	// Sanity check the inverse: ordinary top-level words are present.
+	for _, word := range []string{"self", "group", "groups", "account", "info", "scp", "help"} {
+		require.True(t, present[word], "expected top-level command word %q in the tree", word)
 	}
 }

@@ -13,18 +13,22 @@ import (
 type DelGroup struct{}
 
 func init() {
-	commands.RegisterCommand("group delete", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(DelGroup), models.SBOwner, helpers.Helper{
-				Header:      "delete a group from sb",
-				Usage:       "group delete --group GROUP",
-				Description: "delete a group from sb",
-				Aliases:     []string{"delGroup"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The name of the group",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group delete",
+		Aliases: []string{"delGroup"},
+		Rights:  models.SBOwner,
+		Help: helpers.Helper{
+			Header:      "delete a group from sb",
+			Usage:       "group delete --group GROUP",
+			Description: "delete a group from sb",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The name of the group",
+			},
+		},
+		New: func() commands.Command { return new(DelGroup) },
 	})
 }
 

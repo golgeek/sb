@@ -26,12 +26,16 @@ var (
 )
 
 func init() {
-	commands.RegisterCommand("setup", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Setup), models.Private, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:   "setup",
+		Rights: models.Private,
+		Help: helpers.Helper{
 			Header:      "setup sb on the host",
 			Usage:       "setup'",
 			Description: "setup sb on the host",
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(Setup) },
 	})
 }
 

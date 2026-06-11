@@ -13,18 +13,22 @@ import (
 type DelAccount struct{}
 
 func init() {
-	commands.RegisterCommand("account delete", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(DelAccount), models.SBOwner, helpers.Helper{
-				Header:      "delete an account from sb",
-				Usage:       "account delete --account USERNAME",
-				Description: "delete an account from sb",
-				Aliases:     []string{"delAccount"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "account delete",
+		Aliases: []string{"delAccount"},
+		Rights:  models.SBOwner,
+		Help: helpers.Helper{
+			Header:      "delete an account from sb",
+			Usage:       "account delete --account USERNAME",
+			Description: "delete an account from sb",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+		},
+		New: func() commands.Command { return new(DelAccount) },
 	})
 }
 

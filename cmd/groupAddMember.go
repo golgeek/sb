@@ -12,22 +12,26 @@ import (
 type GroupAddMember struct{}
 
 func init() {
-	commands.RegisterCommand("group member add", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupAddMember), models.GroupGateKeeper, helpers.Helper{
-				Header:      "add an account as a group member",
-				Usage:       "group member add --account USERNAME --group GROUP",
-				Description: "add an account as a group member",
-				Aliases:     []string{"groupAddMember"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which attach of the account",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group member add",
+		Aliases: []string{"groupAddMember"},
+		Rights:  models.GroupGateKeeper,
+		Help: helpers.Helper{
+			Header:      "add an account as a group member",
+			Usage:       "group member add --account USERNAME --group GROUP",
+			Description: "add an account as a group member",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which attach of the account",
+			},
+		},
+		New: func() commands.Command { return new(GroupAddMember) },
 	})
 }
 

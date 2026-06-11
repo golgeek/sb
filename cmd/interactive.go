@@ -24,20 +24,25 @@ type Interactive struct {
 }
 
 func init() {
-	commands.RegisterCommand("interactive", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Interactive), models.Public, helpers.Helper{
-				Header:      "launch sb in interactive mode",
-				Usage:       "interactive",
-				Description: "launch sb in interactive mode",
-			}, map[string]commands.Argument{
-				"client": {
-					Required:    true,
-					Description: "The client to use SSH or MOSH",
-				},
-				"client-arguments": {
-					Required: false,
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:   "interactive",
+		Rights: models.Public,
+		Help: helpers.Helper{
+			Header:      "launch sb in interactive mode",
+			Usage:       "interactive",
+			Description: "launch sb in interactive mode",
+		},
+		Args: map[string]commands.Argument{
+			"client": {
+				Required:    true,
+				Description: "The client to use SSH or MOSH",
+			},
+			"client-arguments": {
+				Required: false,
+			},
+		},
+		Trusted: true,
+		New:     func() commands.Command { return new(Interactive) },
 	})
 }
 
@@ -154,7 +159,9 @@ func (c *Interactive) promptExecutor(command string) {
 		os.Exit(0)
 	}
 
-	if !commands.IsAPublicCommand(commandLine[0]) {
+	// Resolve through the flat registry; trusted commands (interactive,
+	// ttyrec, daemon) must stay unreachable from the REPL.
+	if spec, errCmd := commands.GetSpec(commandLine[0]); errCmd != nil || spec.Trusted {
 		fmt.Println("command not found")
 		return
 	}
@@ -197,28 +204,27 @@ func (c *Interactive) promptCompleter(d prompt.Document) ([]prompt.Suggest, istr
 	return s, startChar, endChar
 }
 
-// publicCommands gathers the public commands from the registry into the
-// library-agnostic representation the completer package expects, resolving each
-// command's description and argument list from its factory.
+// publicCommands gathers the user-invocable commands from the registry into
+// the library-agnostic representation the completer package expects. Trusted
+// specs are excluded so the completer never advertises interactive, ttyrec or
+// daemon.
 func publicCommands() []completer.Command {
 
 	var cmds []completer.Command
 
-	for commandName, commandFactory := range commands.GetCommands() {
-		if !commands.IsAPublicCommand(commandName) {
+	for _, spec := range commands.Specs() {
+		if spec.Trusted {
 			continue
 		}
 
-		_, _, helper, args := commandFactory()
-
 		var commandArgs []completer.Arg
-		for argName, arg := range args {
+		for argName, arg := range spec.Args {
 			commandArgs = append(commandArgs, completer.Arg{Name: argName, Description: arg.Description})
 		}
 
 		cmds = append(cmds, completer.Command{
-			Name:        commandName,
-			Description: helper.Description,
+			Name:        spec.Name,
+			Description: spec.Help.Description,
 			Args:        commandArgs,
 		})
 	}

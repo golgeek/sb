@@ -55,24 +55,26 @@ func TestParseArguments(t *testing.T) {
 			},
 		},
 		{
+			// Tokens stay split since the front-end stopped regrouping them:
+			// dispatch is now first-word based and cobra walks the words.
 			i: []string{"sb", "-c", "self accesses list \\'test"},
 			o: testParseArgumentsOutputData{
 				client:    "ssh",
-				arguments: []string{"self accesses list 'test"},
+				arguments: []string{"self", "accesses", "list", "'test"},
 			},
 		},
 		{
 			i: []string{"sb", "-c", "self accesses list"},
 			o: testParseArgumentsOutputData{
 				client:    "ssh",
-				arguments: []string{"self accesses list"},
+				arguments: []string{"self", "accesses", "list"},
 			},
 		},
 		{
 			i: []string{"sb", "-c", "self ingress-key add --public-key '\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost\"'"},
 			o: testParseArgumentsOutputData{
 				client:    "ssh",
-				arguments: []string{"self ingress-key add", "--public-key", "\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost\""},
+				arguments: []string{"self", "ingress-key", "add", "--public-key", "\"ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv sb@localhost\""},
 			},
 		},
 	}

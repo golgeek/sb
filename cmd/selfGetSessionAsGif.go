@@ -20,28 +20,32 @@ import (
 type SelfGetSessionAsGif struct{}
 
 func init() {
-	commands.RegisterCommand("self session gif", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfGetSessionAsGif), models.Public, helpers.Helper{
-				Header:      "get a recording of an SSH session as a gif",
-				Usage:       "self session gif",
-				Description: "get a recording of an SSH session as a gif",
-				Aliases:     []string{"selfGetSessionAsGif"},
-			}, map[string]commands.Argument{
-				"session-id": {
-					Required:    true,
-					Description: "The session recording ID to convert as a GIF",
-				},
-				"repeat": {
-					Required:    false,
-					Description: "Specify if animation is repeated",
-					Type:        commands.BOOL,
-				},
-				"speed": {
-					Required:     false,
-					Description:  "Specify the play speed factor of the session (default is \"1.0\")",
-					DefaultValue: "1.0",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "self session gif",
+		Aliases: []string{"selfGetSessionAsGif"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "get a recording of an SSH session as a gif",
+			Usage:       "self session gif",
+			Description: "get a recording of an SSH session as a gif",
+		},
+		Args: map[string]commands.Argument{
+			"session-id": {
+				Required:    true,
+				Description: "The session recording ID to convert as a GIF",
+			},
+			"repeat": {
+				Required:    false,
+				Description: "Specify if animation is repeated",
+				Type:        commands.BOOL,
+			},
+			"speed": {
+				Required:     false,
+				Description:  "Specify the play speed factor of the session (default is \"1.0\")",
+				DefaultValue: "1.0",
+			},
+		},
+		New: func() commands.Command { return new(SelfGetSessionAsGif) },
 	})
 }
 

@@ -12,19 +12,23 @@ import (
 type GroupList struct{}
 
 func init() {
-	commands.RegisterCommand("groups list", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupList), models.Public, helpers.Helper{
-				Header:      "display the list of groups",
-				Usage:       "groups list [--all]",
-				Description: "display the list of groups",
-				Aliases:     []string{"groupList"},
-			}, map[string]commands.Argument{
-				"all": {
-					Required:    false,
-					Description: "List all the groups instead of just the ones you're a member of",
-					Type:        commands.BOOL,
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "groups list",
+		Aliases: []string{"groupList"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "display the list of groups",
+			Usage:       "groups list [--all]",
+			Description: "display the list of groups",
+		},
+		Args: map[string]commands.Argument{
+			"all": {
+				Required:    false,
+				Description: "List all the groups instead of just the ones you're a member of",
+				Type:        commands.BOOL,
+			},
+		},
+		New: func() commands.Command { return new(GroupList) },
 	})
 }
 

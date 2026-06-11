@@ -14,13 +14,17 @@ import (
 type SelfGenerateTOTPCodes struct{}
 
 func init() {
-	commands.RegisterCommand("self totp emergency-codes generate", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfGenerateTOTPCodes), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:    "self totp emergency-codes generate",
+		Aliases: []string{"selfGenerateTOTPCodes"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
 			Header:      "generate TOTP emergency codes",
 			Usage:       "self totp emergency-codes generate",
 			Description: "generate TOTP emergency codes",
-			Aliases:     []string{"selfGenerateTOTPCodes"},
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(SelfGenerateTOTPCodes) },
 	})
 }
 

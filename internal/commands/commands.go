@@ -15,10 +15,6 @@ import (
 	"github.com/golgeek/sb/internal/types"
 )
 
-var (
-	commands map[string]Factory
-)
-
 // logAuditWarn reports a best-effort audit-log persistence failure to stderr
 // without failing the command. The authorization decision has already been made
 // by the time these writes happen, so a logging hiccup must not change the
@@ -29,29 +25,9 @@ func logAuditWarn(err error) {
 	}
 }
 
-func RegisterCommand(name string, command Factory) {
-	if commands == nil {
-		commands = make(map[string]Factory)
-	}
-	commands[name] = command
-}
-
-func GetCommands() map[string]Factory {
-	return commands
-}
-
-// IsAPublicCommand returns true if the argument passed is a public trusted command
-func IsAPublicCommand(command string) bool {
-
-	if command == "interactive" || command == "ttyrec" || command == "daemon" {
-		return false
-	}
-
-	_, _, _, _, err := GetCommand(command)
-
-	return err == nil
-}
-
+// IsReplicableCommand reports whether a command's execution persists a
+// replication outbox entry. Local-administration commands (setup, backup,
+// restore) never replicate.
 func IsReplicableCommand(command string) bool {
 	if command == "setup" || command == "backup" || command == "restore" {
 		return false
@@ -59,7 +35,12 @@ func IsReplicableCommand(command string) bool {
 	return true
 }
 
-// BuildAndExecuteSBCommand builds the command
+// BuildAndExecuteSBCommand builds the command through the trusted flat
+// dispatch path and executes it. It is used by the front-end for the trusted
+// commands (interactive, ttyrec, daemon) whose arguments it assembles itself,
+// and by the interactive REPL's executor. The user-facing CLI goes through
+// the cobra tree instead (BuildRootCommand); both paths enforce the same
+// centralized authorization gate.
 func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string) (err error) {
 
 	bc, ct, err := BuildSBCommand(log, user, args...)
@@ -102,7 +83,11 @@ func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string
 	return cmdErr
 }
 
-// buildArgumentsList constructs a map[string]string from the arguments lists
+// buildArgumentsList constructs a map[string]string from the arguments lists.
+// It is the legacy argument parser, still used by the trusted flat dispatch
+// path; the cobra adapter's formatArguments preserves its contractual
+// semantics (see arguments_characterization_test.go for the distinction
+// between contract and legacy quirks).
 func buildArgumentsList(trustedArguments map[string]Argument, args []string) (arguments map[string]string, rest []string, err error) {
 
 	arguments = make(map[string]string)
@@ -182,27 +167,11 @@ func buildArgumentsList(trustedArguments map[string]Argument, args []string) (ar
 	return
 }
 
-func GetCommand(commandName string) (cmd Command, rights models.Right, helpers helpers.Helper, args map[string]Argument, err error) {
-
-	if commandBuilder, ok := commands[commandName]; ok {
-		cmd, rights, helpers, args = commandBuilder()
-		return
-	}
-
-	for _, commandFactory := range commands {
-		cmd, rights, helpers, args = commandFactory()
-		for _, alias := range helpers.Aliases {
-			if alias == commandName {
-				return
-			}
-		}
-	}
-
-	err = types.ErrUnknownCommand
-	return
-}
-
-// BuildSBCommand builds the command
+// BuildSBCommand resolves a command through the flat registry (canonical name
+// or alias, trusted commands included), parses its arguments with the legacy
+// parser, and runs the centralized authorization gate plus the command's own
+// Checks. It returns the constructed command instance and its populated
+// execution context.
 func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Command, ct *Context, err error) {
 
 	ct = &Context{
@@ -210,25 +179,26 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 		User: user,
 	}
 
-	// Get the command
-	bc, commandRightsLevel, commandHlprs, cas, err := GetCommand(args[0])
+	// Resolve the command spec through the flat registry
+	spec, err := GetSpec(args[0])
 	if err != nil {
 		return bc, ct, err
 	}
+	bc = spec.New()
 
-	// Log the command we used
+	// Log the command we used, as typed (canonical name or alias)
 	logAuditWarn(log.SetCommand(args[0]))
 
 	// Let's start by displaying the helper if user asked for it
 	if len(args) > 1 && (args[1] == "help" || args[1] == "?") {
-		DisplayHelpers(commandHlprs, cas)
+		DisplayHelpers(spec.Help, spec.Args)
 		return bc, ct, types.ErrMissingArguments
 	}
 
 	// Then, let's build the arguments list (and display the helper if there are missing values)
-	ct.FormattedArguments, ct.RawArguments, err = buildArgumentsList(cas, args[1:])
+	ct.FormattedArguments, ct.RawArguments, err = buildArgumentsList(spec.Args, args[1:])
 	if err != nil {
-		DisplayHelpers(commandHlprs, cas)
+		DisplayHelpers(spec.Help, spec.Args)
 		return bc, ct, err
 	}
 
@@ -245,7 +215,7 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 	// Now, let's check the rights! This is the single authorization gate on
 	// the dispatch path; the decision logic lives in authorize (authorize.go)
 	// so it can be unit tested hermetically.
-	err = newAuthorizer().authorize(user, commandRightsLevel, ct)
+	err = newAuthorizer().authorize(user, spec.Rights, ct)
 	if err != nil {
 		return
 	}

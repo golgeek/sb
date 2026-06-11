@@ -30,32 +30,36 @@ type Scp struct{}
 const scpSFTPSubsystem = "sftp"
 
 func init() {
-	commands.RegisterCommand("scp", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Scp), models.HasAccess, helpers.Helper{
-				Header: "transfer a file from or to a distant host through sb",
-				Usage:  "proxy [--get-script | --access HOST --scp-cmd CMD]",
-				Description: fmt.Sprintf(`This command allows the transfer of a file from or to a distant host through sb.
+	commands.Register(commands.CommandSpec{
+		Name:   "scp",
+		Rights: models.HasAccess,
+		Help: helpers.Helper{
+			Header: "transfer a file from or to a distant host through sb",
+			Usage:  "proxy [--get-script | --access HOST --scp-cmd CMD]",
+			Description: fmt.Sprintf(`This command allows the transfer of a file from or to a distant host through sb.
              This requires the execution of script in complement of your usual scp command.
              To get this running, execute the following commands:
                  %s scp --get-script > ~/.%sscp && chmod +x ~/.%sscp
                  alias %sscp='scp -S ~/.%sscp '
 			 And voila, you're all set: just run the command '%sscp' as you would run 'scp'!`,
-					config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName()),
-			}, map[string]commands.Argument{
-				"access": {
-					Required:    false,
-					Description: "The IP, host or alias of the distant host",
-				},
-				"scp-cmd": {
-					Required:    false,
-					Description: "The remote transfer command: a legacy 'scp -t/-f ...' invocation, or the literal 'sftp' to proxy the SFTP subsystem (set by the wrapper script)",
-				},
-				"get-script": {
-					Required:    false,
-					Description: "Get the SCP script",
-					Type:        commands.BOOL,
-				},
-			}
+				config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName(), config.GetSBName()),
+		},
+		Args: map[string]commands.Argument{
+			"access": {
+				Required:    false,
+				Description: "The IP, host or alias of the distant host",
+			},
+			"scp-cmd": {
+				Required:    false,
+				Description: "The remote transfer command: a legacy 'scp -t/-f ...' invocation, or the literal 'sftp' to proxy the SFTP subsystem (set by the wrapper script)",
+			},
+			"get-script": {
+				Required:    false,
+				Description: "Get the SCP script",
+				Type:        commands.BOOL,
+			},
+		},
+		New: func() commands.Command { return new(Scp) },
 	})
 }
 
@@ -104,11 +108,11 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 	// case with no arguments at all
 	if !ok && ct.AI == nil {
 		// Let's just print the help
-		_, _, commandHlprs, cas, errCmd := commands.GetCommand("scp")
-		if err != nil {
+		spec, errCmd := commands.GetSpec("scp")
+		if errCmd != nil {
 			return repl, cmdError, errCmd
 		}
-		commands.DisplayHelpers(commandHlprs, cas)
+		commands.DisplayHelpers(spec.Help, spec.Args)
 		return
 	}
 

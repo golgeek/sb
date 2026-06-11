@@ -17,35 +17,39 @@ type GroupGenerateEgressKey struct {
 }
 
 func init() {
-	commands.RegisterCommand("group egress-key generate", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupGenerateEgressKey), models.GroupOwner, helpers.Helper{
-				Header:      "generate a new SSH egress (sb -> distant host) key for a group",
-				Usage:       "group egress-key generate --group GROUP --algo ALGO --size SIZE [--encrypted]",
-				Description: "generate a new public + private key pair for a group",
-				Aliases:     []string{"groupGenerateEgressKey"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The group",
-				},
-				"algo": {
-					Required:      true,
-					Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
-					AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
-				},
-				"size": {
-					Required: true,
-					Description: `Size of the key to generate:
+	commands.Register(commands.CommandSpec{
+		Name:    "group egress-key generate",
+		Aliases: []string{"groupGenerateEgressKey"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "generate a new SSH egress (sb -> distant host) key for a group",
+			Usage:       "group egress-key generate --group GROUP --algo ALGO --size SIZE [--encrypted]",
+			Description: "generate a new public + private key pair for a group",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The group",
+			},
+			"algo": {
+				Required:      true,
+				Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
+				AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
+			},
+			"size": {
+				Required: true,
+				Description: `Size of the key to generate:
 	- for RSA, choose between 2048 and 8192 (4096 is good)
 	- for ECDSA, choose either 256, 384 or 521
 	- for ED25519, size is always 256`,
-				},
-				"encrypted": {
-					Required:    false,
-					Description: "If specified, a passphrase will be prompted for the new key",
-					Type:        commands.BOOL,
-				},
-			}
+			},
+			"encrypted": {
+				Required:    false,
+				Description: "If specified, a passphrase will be prompted for the new key",
+				Type:        commands.BOOL,
+			},
+		},
+		New: func() commands.Command { return new(GroupGenerateEgressKey) },
 	})
 }
 

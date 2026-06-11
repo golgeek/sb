@@ -223,6 +223,25 @@ func (r *Registry) CanonicalTokens(tokens []string) []string {
 	return append(strings.Fields(spec.Name), tokens[1:]...)
 }
 
+// ShadowsCommandName reports whether value collides (case-insensitively) with
+// anything the command dispatch claims: a canonical name, an alias, or the
+// first word of a multi-word canonical name. Host accesses and aliases are
+// refused when they collide, because dispatch resolves command tokens before
+// accesses — a colliding host would become unreachable (shadowed).
+func (r *Registry) ShadowsCommandName(value string) bool {
+	for _, spec := range r.ordered {
+		if strings.EqualFold(value, spec.Name) || strings.EqualFold(value, spec.firstWord()) {
+			return true
+		}
+		for _, alias := range spec.Aliases {
+			if strings.EqualFold(value, alias) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // defaultRegistry is the process-wide registry populated by cmd/*.go init
 // functions through Register.
 var defaultRegistry = NewRegistry()
@@ -255,4 +274,10 @@ func IsCommandToken(token string) bool {
 // registry (see Registry.CanonicalTokens).
 func CanonicalTokens(tokens []string) []string {
 	return defaultRegistry.CanonicalTokens(tokens)
+}
+
+// ShadowsCommandName reports whether value collides with a command name in
+// the process-wide registry (see Registry.ShadowsCommandName).
+func ShadowsCommandName(value string) bool {
+	return defaultRegistry.ShadowsCommandName(value)
 }

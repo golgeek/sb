@@ -12,26 +12,30 @@ import (
 type SelfDelAccess struct{}
 
 func init() {
-	commands.RegisterCommand("self access remove", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfDelAccess), models.Public, helpers.Helper{
-				Header:      "remove a personal access to a distant host",
-				Usage:       "self access remove --host HOST --user USER --port PORT",
-				Description: "remove a personal access to a distant host",
-				Aliases:     []string{"selfDelAccess"},
-			}, map[string]commands.Argument{
-				"host": {
-					Required:    true,
-					Description: "An IP, IP range or hostname you're granting access to",
-				},
-				"user": {
-					Required:    true,
-					Description: "The user you're granting access to",
-				},
-				"port": {
-					Required:    true,
-					Description: "The port you're granting access to",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "self access remove",
+		Aliases: []string{"selfDelAccess"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "remove a personal access to a distant host",
+			Usage:       "self access remove --host HOST --user USER --port PORT",
+			Description: "remove a personal access to a distant host",
+		},
+		Args: map[string]commands.Argument{
+			"host": {
+				Required:    true,
+				Description: "An IP, IP range or hostname you're granting access to",
+			},
+			"user": {
+				Required:    true,
+				Description: "The user you're granting access to",
+			},
+			"port": {
+				Required:    true,
+				Description: "The port you're granting access to",
+			},
+		},
+		New: func() commands.Command { return new(SelfDelAccess) },
 	})
 }
 

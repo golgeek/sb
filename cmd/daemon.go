@@ -22,12 +22,17 @@ type Daemon struct {
 }
 
 func init() {
-	commands.RegisterCommand("daemon", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Daemon), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:   "daemon",
+		Rights: models.Public,
+		Help: helpers.Helper{
 			Header:      "daemon",
 			Usage:       "daemon --subscriber",
 			Description: "Launch the replication-daemon",
-		}, map[string]commands.Argument{}
+		},
+		Args:    map[string]commands.Argument{},
+		Trusted: true,
+		New:     func() commands.Command { return new(Daemon) },
 	})
 }
 
@@ -147,13 +152,17 @@ func (c *Daemon) consumeReplicationEvents(rq replicationqueue.ReplicationQueue) 
 
 		default:
 
-			cmd, _, _, _, err := commands.GetCommand(entry.Action)
+			// Resolve the action through the flat registry: outbox entries
+			// may carry the canonical name or a historical camelCase alias,
+			// and both must keep resolving here forever. This path never goes
+			// through cobra — it applies an already-authorized peer action.
+			spec, err := commands.GetSpec(entry.Action)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: unknown command to replicate: %s\n", err)
 				return err
 			}
 
-			err = cmd.Replicate(replicationData)
+			err = spec.New().Replicate(replicationData)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "ERROR: unable to replicate action: %s\n", err)
 				return err
@@ -233,14 +242,14 @@ func (c *Daemon) handlePostExecution(entry models.Replication) (err error) {
 
 	fmt.Println("    -> getting the command to execute...")
 
-	cmd, _, _, _, err := commands.GetCommand(entry.Action)
+	spec, err := commands.GetSpec(entry.Action)
 	if err != nil {
 		return fmt.Errorf("unknown command to PostExecute: %s", err)
 	}
 
 	fmt.Println("    -> executing PostExecute() func...")
 
-	err = cmd.PostExecute(replicationData)
+	err = spec.New().PostExecute(replicationData)
 	if err != nil {
 		return fmt.Errorf("unable to excute the PostExecute action: %s", err)
 	}
