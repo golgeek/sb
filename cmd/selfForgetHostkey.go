@@ -13,17 +13,21 @@ import (
 type SelfForgetHostkey struct{}
 
 func init() {
-	commands.RegisterCommand("self hostkey forget", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfForgetHostkey), models.Public, helpers.Helper{
-				Header:      "forget a hostkey",
-				Usage:       "self hostkey forget",
-				Description: "forget a hostkey from your known_hosts file",
-			}, map[string]commands.Argument{
-				"hostkey": {
-					Required:    true,
-					Description: "The hostkey to forget",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:   "self hostkey forget",
+		Rights: models.Public,
+		Help: helpers.Helper{
+			Header:      "forget a hostkey",
+			Usage:       "self hostkey forget",
+			Description: "forget a hostkey from your known_hosts file",
+		},
+		Args: map[string]commands.Argument{
+			"hostkey": {
+				Required:    true,
+				Description: "The hostkey to forget",
+			},
+		},
+		New: func() commands.Command { return new(SelfForgetHostkey) },
 	})
 }
 

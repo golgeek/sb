@@ -12,22 +12,26 @@ import (
 type GroupAddGateKeeper struct{}
 
 func init() {
-	commands.RegisterCommand("group gate-keeper add", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupAddGateKeeper), models.GroupOwner, helpers.Helper{
-				Header:      "add an account as a group gate keeper",
-				Usage:       "group gate-keeper add --account USERNAME --group GROUP",
-				Description: "add an account as a group gate keeper",
-				Aliases:     []string{"groupAddGateKeeper"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which attach of the account",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group gate-keeper add",
+		Aliases: []string{"groupAddGateKeeper"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "add an account as a group gate keeper",
+			Usage:       "group gate-keeper add --account USERNAME --group GROUP",
+			Description: "add an account as a group gate keeper",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which attach of the account",
+			},
+		},
+		New: func() commands.Command { return new(GroupAddGateKeeper) },
 	})
 }
 

@@ -13,13 +13,17 @@ import (
 type SelfListAccesses struct{}
 
 func init() {
-	commands.RegisterCommand("self accesses list", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfListAccesses), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:    "self accesses list",
+		Aliases: []string{"selfListAccesses"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
 			Header:      "list the hosts accessible to this account",
 			Usage:       "self accesses list",
 			Description: "list the hosts accessible to this account",
-			Aliases:     []string{"selfListAccesses"},
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(SelfListAccesses) },
 	})
 }
 

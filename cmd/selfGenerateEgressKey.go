@@ -16,31 +16,35 @@ import (
 type SelfGenerateEgressKey struct{}
 
 func init() {
-	commands.RegisterCommand("self egress-key generate", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfGenerateEgressKey), models.Public, helpers.Helper{
-				Header:      "generate a new SSH egress (sb -> server) key for your account",
-				Usage:       "self egress-key generate --algo ALGO --size SIZE [--encrypted]",
-				Description: "create a new public + private key pair. The private key will stay on your account on sb.",
-				Aliases:     []string{"selfGenerateEgressKey"},
-			}, map[string]commands.Argument{
-				"algo": {
-					Required:      true,
-					Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
-					AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
-				},
-				"size": {
-					Required: true,
-					Description: `Size of the key to generate:
+	commands.Register(commands.CommandSpec{
+		Name:    "self egress-key generate",
+		Aliases: []string{"selfGenerateEgressKey"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "generate a new SSH egress (sb -> server) key for your account",
+			Usage:       "self egress-key generate --algo ALGO --size SIZE [--encrypted]",
+			Description: "create a new public + private key pair. The private key will stay on your account on sb.",
+		},
+		Args: map[string]commands.Argument{
+			"algo": {
+				Required:      true,
+				Description:   "Specifies the algo of the key, either rsa, ecdsa or ed25519",
+				AllowedValues: []string{"rsa", "ecdsa", "ed25519"},
+			},
+			"size": {
+				Required: true,
+				Description: `Size of the key to generate:
 	- for RSA, choose between 2048 and 8192 (4096 is good)
 	- for ECDSA, choose either 256, 384 or 521
 	- for ED25519, size is always 256`,
-				},
-				"encrypted": {
-					Required:    false,
-					Description: "If specified, a passphrase will be prompted for the new key",
-					Type:        commands.BOOL,
-				},
-			}
+			},
+			"encrypted": {
+				Required:    false,
+				Description: "If specified, a passphrase will be prompted for the new key",
+				Type:        commands.BOOL,
+			},
+		},
+		New: func() commands.Command { return new(SelfGenerateEgressKey) },
 	})
 }
 

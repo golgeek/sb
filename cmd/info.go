@@ -17,12 +17,16 @@ type Info struct {
 }
 
 func init() {
-	commands.RegisterCommand("info", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Info), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:   "info",
+		Rights: models.Public,
+		Help: helpers.Helper{
 			Header:      "display info on sb and your account",
 			Usage:       "info",
 			Description: "display info on sb and your account",
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(Info) },
 	})
 }
 

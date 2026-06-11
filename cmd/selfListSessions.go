@@ -13,13 +13,17 @@ import (
 type SelfListSessions struct{}
 
 func init() {
-	commands.RegisterCommand("self sessions list", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfListSessions), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:    "self sessions list",
+		Aliases: []string{"selfListSessions"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
 			Header:      "list your last 20 SSH sessions",
 			Usage:       "self sessions list",
 			Description: "list your last 20 SSH sessions",
-			Aliases:     []string{"selfListSessions"},
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(SelfListSessions) },
 	})
 }
 

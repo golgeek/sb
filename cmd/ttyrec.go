@@ -44,24 +44,29 @@ func (l *lockedWriter) Write(p []byte) (int, error) {
 }
 
 func init() {
-	commands.RegisterCommand("ttyrec", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(Ttyrec), models.HasAccess, helpers.Helper{
-				Header:      "start an SSH session to a distant host with ttyrec enabled",
-				Usage:       "ttyrec user@host",
-				Description: "start an SSH session to a distant host with ttyrec enabled",
-			}, map[string]commands.Argument{
-				"access": {
-					Required:    true,
-					Description: "The host to access",
-				},
-				"client": {
-					Required:    true,
-					Description: "The client to use SSH or MOSH",
-				},
-				"client-arguments": {
-					Required: false,
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:   "ttyrec",
+		Rights: models.HasAccess,
+		Help: helpers.Helper{
+			Header:      "start an SSH session to a distant host with ttyrec enabled",
+			Usage:       "ttyrec user@host",
+			Description: "start an SSH session to a distant host with ttyrec enabled",
+		},
+		Args: map[string]commands.Argument{
+			"access": {
+				Required:    true,
+				Description: "The host to access",
+			},
+			"client": {
+				Required:    true,
+				Description: "The client to use SSH or MOSH",
+			},
+			"client-arguments": {
+				Required: false,
+			},
+		},
+		Trusted: true,
+		New:     func() commands.Command { return new(Ttyrec) },
 	})
 }
 

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/golgeek/sb/internal/commands"
@@ -14,46 +13,51 @@ import (
 type GroupAddAccess struct{}
 
 func init() {
-	commands.RegisterCommand("group access add", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupAddAccess), models.GroupACLKeeper, helpers.Helper{
-				Header:      "add a group access to a distant host",
-				Usage:       "group access add --group GROUP-NAME --host HOST --user USER [--port PORT --alias ALIAS]",
-				Description: "add a group access to a distant host",
-				Aliases:     []string{"groupAddAccess"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The group name you want to add an access for",
-				},
-				"host": {
-					Required:    true,
-					Description: "An IP, IP range or hostname you're granting access to",
-				},
-				"user": {
-					Required:    true,
-					Description: "The user you're granting access to",
-				},
-				"port": {
-					Required:     false,
-					Description:  "An optional port you're granting access to. If not provided, the default SSH port (22) will be used.",
-					DefaultValue: "22",
-				},
-				"alias": {
-					Required:    false,
-					Description: "An optional alias to this access (to enable quick access by typing 'sb alias' or 'sb user@alias')",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group access add",
+		Aliases: []string{"groupAddAccess"},
+		Rights:  models.GroupACLKeeper,
+		Help: helpers.Helper{
+			Header:      "add a group access to a distant host",
+			Usage:       "group access add --group GROUP-NAME --host HOST --user USER [--port PORT --alias ALIAS]",
+			Description: "add a group access to a distant host",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The group name you want to add an access for",
+			},
+			"host": {
+				Required:    true,
+				Description: "An IP, IP range or hostname you're granting access to",
+			},
+			"user": {
+				Required:    true,
+				Description: "The user you're granting access to",
+			},
+			"port": {
+				Required:     false,
+				Description:  "An optional port you're granting access to. If not provided, the default SSH port (22) will be used.",
+				DefaultValue: "22",
+			},
+			"alias": {
+				Required:    false,
+				Description: "An optional alias to this access (to enable quick access by typing 'sb alias' or 'sb user@alias')",
+			},
+		},
+		New: func() commands.Command { return new(GroupAddAccess) },
 	})
 }
 
 // Checks checks whether or not the user can execute this method
 func (c *GroupAddAccess) Checks(ct *commands.Context) error {
 
-	for commandName := range commands.GetCommands() {
-		if strings.EqualFold(ct.FormattedArguments["alias"], commandName) ||
-			strings.EqualFold(ct.FormattedArguments["host"], commandName) {
-			return fmt.Errorf("the host or alias provided matches a sb command name, please provide a different value")
-		}
+	// Dispatch resolves command tokens before accesses, so a host or alias
+	// colliding with a command name, a command alias, or the first word of a
+	// multi-word command would be shadowed and unreachable. Refuse it.
+	if commands.ShadowsCommandName(ct.FormattedArguments["alias"]) ||
+		commands.ShadowsCommandName(ct.FormattedArguments["host"]) {
+		return fmt.Errorf("the host or alias provided matches a sb command name, please provide a different value")
 	}
 
 	return nil

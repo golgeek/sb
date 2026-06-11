@@ -15,13 +15,17 @@ import (
 type SelfDisableTOTP struct{}
 
 func init() {
-	commands.RegisterCommand("self totp disable", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfDisableTOTP), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:    "self totp disable",
+		Aliases: []string{"selfDisableTOTP"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
 			Header:      "disable TOTP on the account",
 			Usage:       "self totp disable",
 			Description: "disable TOTP on the account",
-			Aliases:     []string{"selfDisableTOTP"},
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(SelfDisableTOTP) },
 	})
 }
 

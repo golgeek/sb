@@ -12,22 +12,26 @@ import (
 type GroupAddOwner struct{}
 
 func init() {
-	commands.RegisterCommand("group owner add", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupAddOwner), models.GroupOwner, helpers.Helper{
-				Header:      "add an account as a group owner",
-				Usage:       "group owner add --account USERNAME --group GROUP",
-				Description: "add an account as a group owner",
-				Aliases:     []string{"groupAddOwner"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which attach of the account",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group owner add",
+		Aliases: []string{"groupAddOwner"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "add an account as a group owner",
+			Usage:       "group owner add --account USERNAME --group GROUP",
+			Description: "add an account as a group owner",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which attach of the account",
+			},
+		},
+		New: func() commands.Command { return new(GroupAddOwner) },
 	})
 }
 

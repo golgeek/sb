@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 
 	"github.com/golgeek/sb/internal/commands"
@@ -16,12 +15,16 @@ type Help struct {
 }
 
 func init() {
-	commands.RegisterCommand("help", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Help), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:   "help",
+		Rights: models.Public,
+		Help: helpers.Helper{
 			Header:      "display this help",
 			Usage:       "help",
 			Description: "display this help",
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(Help) },
 	})
 }
 
@@ -34,23 +37,24 @@ func (c *Help) Checks(ct *commands.Context) error {
 // Execute executes the command
 func (c *Help) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
 
-	cmds := commands.GetCommands()
+	specs := commands.Specs()
 
 	maxLength := 0
-	commandNames := make([]string, 0, len(cmds))
+	listable := make([]*commands.CommandSpec, 0, len(specs))
 
-	for commandName := range cmds {
+	for _, spec := range specs {
 
-		if !commands.IsAPublicCommand(commandName) {
+		// Trusted commands (interactive, ttyrec, daemon) are dispatched by
+		// the front-end only and must never be advertised to users.
+		if spec.Trusted {
 			continue
 		}
 
-		if len(commandName) > maxLength {
-			maxLength = len(commandName)
+		if len(spec.Name) > maxLength {
+			maxLength = len(spec.Name)
 		}
-		commandNames = append(commandNames, commandName)
+		listable = append(listable, spec)
 	}
-	sort.Strings(commandNames)
 
 	fmt.Printf("Usage: %s [OPTION | HOST | COMMAND]\n", config.GetSBName())
 	fmt.Println()
@@ -74,15 +78,14 @@ func (c *Help) Execute(ct *commands.Context) (repl models.ReplicationData, cmdEr
 	fmt.Printf("user will be interactively prompted to choose the desired access\n")
 	fmt.Println()
 	fmt.Println("Available commands:")
-	for _, commandName := range commandNames {
-		_, rightLevel, helper, _ := cmds[commandName]()
+	for _, spec := range listable {
 
-		if rightLevel >= models.Private {
+		if spec.Rights >= models.Private {
 			continue
 		}
 
-		if rightLevel < models.SBOwner || ct.User.IsOwnerOfGroup("owners") {
-			fmt.Printf("  - %-"+strconv.Itoa(maxLength)+"s : %s\n", commandName, helper.Header)
+		if spec.Rights < models.SBOwner || ct.User.IsOwnerOfGroup("owners") {
+			fmt.Printf("  - %-"+strconv.Itoa(maxLength)+"s : %s\n", spec.Name, spec.Help.Header)
 		}
 	}
 

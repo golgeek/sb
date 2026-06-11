@@ -12,22 +12,26 @@ import (
 type GroupDelGateKeeper struct{}
 
 func init() {
-	commands.RegisterCommand("group gate-keeper remove", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupDelGateKeeper), models.GroupOwner, helpers.Helper{
-				Header:      "remove an account from the gate keepers of a group",
-				Usage:       "group gate-keeper remove --account USERNAME --group GROUP",
-				Description: "remove an account from the gate keepers of a group",
-				Aliases:     []string{"groupDelGateKeeper"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which remove the account from",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group gate-keeper remove",
+		Aliases: []string{"groupDelGateKeeper"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "remove an account from the gate keepers of a group",
+			Usage:       "group gate-keeper remove --account USERNAME --group GROUP",
+			Description: "remove an account from the gate keepers of a group",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which remove the account from",
+			},
+		},
+		New: func() commands.Command { return new(GroupDelGateKeeper) },
 	})
 }
 

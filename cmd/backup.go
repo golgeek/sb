@@ -16,17 +16,21 @@ import (
 type Backup struct{}
 
 func init() {
-	commands.RegisterCommand("backup", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Backup), models.Private, helpers.Helper{
-				Header:      "creates a backup archive of this sb instance",
-				Usage:       "backup",
-				Description: "creates a backup file of this sb instance",
-			}, map[string]commands.Argument{
-				"backup-directory": {
-					Required:    true,
-					Description: "The directory where to output the backup file",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:   "backup",
+		Rights: models.Private,
+		Help: helpers.Helper{
+			Header:      "creates a backup archive of this sb instance",
+			Usage:       "backup",
+			Description: "creates a backup file of this sb instance",
+		},
+		Args: map[string]commands.Argument{
+			"backup-directory": {
+				Required:    true,
+				Description: "The directory where to output the backup file",
+			},
+		},
+		New: func() commands.Command { return new(Backup) },
 	})
 }
 

@@ -16,21 +16,25 @@ import (
 type Restore struct{}
 
 func init() {
-	commands.RegisterCommand("restore", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(Restore), models.Private, helpers.Helper{
-				Header:      "restores a backup archive of this sb instance",
-				Usage:       "restore",
-				Description: "restores a backup archive of this sb instance",
-			}, map[string]commands.Argument{
-				"file": {
-					Required:    true,
-					Description: "The filepath of the binary file to restore",
-				},
-				"decryption-key": {
-					Required:    true,
-					Description: "Key to use to decrypt the binary backup file",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:   "restore",
+		Rights: models.Private,
+		Help: helpers.Helper{
+			Header:      "restores a backup archive of this sb instance",
+			Usage:       "restore",
+			Description: "restores a backup archive of this sb instance",
+		},
+		Args: map[string]commands.Argument{
+			"file": {
+				Required:    true,
+				Description: "The filepath of the binary file to restore",
+			},
+			"decryption-key": {
+				Required:    true,
+				Description: "Key to use to decrypt the binary backup file",
+			},
+		},
+		New: func() commands.Command { return new(Restore) },
 	})
 }
 

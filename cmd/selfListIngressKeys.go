@@ -12,13 +12,17 @@ import (
 type SelfListIngressKeys struct{}
 
 func init() {
-	commands.RegisterCommand("self ingress-keys list", func() (c commands.Command, r models.Right, h helpers.Helper, args map[string]commands.Argument) {
-		return new(SelfListIngressKeys), models.Public, helpers.Helper{
+	commands.Register(commands.CommandSpec{
+		Name:    "self ingress-keys list",
+		Aliases: []string{"selfListIngressKeys"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
 			Header:      "list your ingress public keys (you -> sb)",
 			Usage:       "self ingress-keys list [--public-key 'ssh key text']",
 			Description: "list your ingress public keys (you -> sb)",
-			Aliases:     []string{"selfListIngressKeys"},
-		}, map[string]commands.Argument{}
+		},
+		Args: map[string]commands.Argument{},
+		New:  func() commands.Command { return new(SelfListIngressKeys) },
 	})
 }
 

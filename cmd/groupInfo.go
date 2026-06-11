@@ -13,18 +13,22 @@ import (
 type GroupInfo struct{}
 
 func init() {
-	commands.RegisterCommand("group info", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupInfo), models.Public, helpers.Helper{
-				Header:      "display the basic information of a group",
-				Usage:       "group info --group 'GROUP-NAME'",
-				Description: "display the basic information of a group",
-				Aliases:     []string{"groupInfo"},
-			}, map[string]commands.Argument{
-				"group": {
-					Required:    true,
-					Description: "The group name you want info from",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group info",
+		Aliases: []string{"groupInfo"},
+		Rights:  models.Public,
+		Help: helpers.Helper{
+			Header:      "display the basic information of a group",
+			Usage:       "group info --group 'GROUP-NAME'",
+			Description: "display the basic information of a group",
+		},
+		Args: map[string]commands.Argument{
+			"group": {
+				Required:    true,
+				Description: "The group name you want info from",
+			},
+		},
+		New: func() commands.Command { return new(GroupInfo) },
 	})
 }
 

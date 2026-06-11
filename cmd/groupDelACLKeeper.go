@@ -12,22 +12,26 @@ import (
 type GroupDelACLKeeper struct{}
 
 func init() {
-	commands.RegisterCommand("group acl-keeper remove", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(GroupDelACLKeeper), models.GroupOwner, helpers.Helper{
-				Header:      "remove an account from the ACL keepers of a group",
-				Usage:       "group acl-keeper delete --account USERNAME --group GROUP",
-				Description: "remove an account from the ACL keepers of a group",
-				Aliases:     []string{"groupDelACLKeeper"},
-			}, map[string]commands.Argument{
-				"account": {
-					Required:    true,
-					Description: "The username of the account",
-				},
-				"group": {
-					Required:    true,
-					Description: "The group to which remove the account from",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "group acl-keeper remove",
+		Aliases: []string{"groupDelACLKeeper"},
+		Rights:  models.GroupOwner,
+		Help: helpers.Helper{
+			Header:      "remove an account from the ACL keepers of a group",
+			Usage:       "group acl-keeper delete --account USERNAME --group GROUP",
+			Description: "remove an account from the ACL keepers of a group",
+		},
+		Args: map[string]commands.Argument{
+			"account": {
+				Required:    true,
+				Description: "The username of the account",
+			},
+			"group": {
+				Required:    true,
+				Description: "The group to which remove the account from",
+			},
+		},
+		New: func() commands.Command { return new(GroupDelACLKeeper) },
 	})
 }
 

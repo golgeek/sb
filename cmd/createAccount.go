@@ -15,22 +15,26 @@ type CreateAccount struct {
 }
 
 func init() {
-	commands.RegisterCommand("account create", func() (c commands.Command, r models.Right, helper helpers.Helper, args map[string]commands.Argument) {
-		return new(CreateAccount), models.SBOwner, helpers.Helper{
-				Header:      "create a new account on sb",
-				Usage:       "createAccount --username USERNAME --public-key 'KEY'",
-				Description: "create a new account on sb",
-				Aliases:     []string{"createAccount"},
-			}, map[string]commands.Argument{
-				"username": {
-					Required:    true,
-					Description: "The username of the account you want to create",
-				},
-				"public-key": {
-					Required:    true,
-					Description: "The ingress (user -> sb) SSH public key of the account you want to create (you will need to '\"double escape it\"')",
-				},
-			}
+	commands.Register(commands.CommandSpec{
+		Name:    "account create",
+		Aliases: []string{"createAccount"},
+		Rights:  models.SBOwner,
+		Help: helpers.Helper{
+			Header:      "create a new account on sb",
+			Usage:       "createAccount --username USERNAME --public-key 'KEY'",
+			Description: "create a new account on sb",
+		},
+		Args: map[string]commands.Argument{
+			"username": {
+				Required:    true,
+				Description: "The username of the account you want to create",
+			},
+			"public-key": {
+				Required:    true,
+				Description: "The ingress (user -> sb) SSH public key of the account you want to create (you will need to '\"double escape it\"')",
+			},
+		},
+		New: func() commands.Command { return new(CreateAccount) },
 	})
 }
 

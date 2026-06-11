@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 )
 
@@ -22,9 +21,6 @@ type Context struct {
 	FormattedArguments map[string]string
 	RawArguments       []string
 }
-
-// Factory describes the command factory that registers the commands
-type Factory func() (c Command, r models.Right, h helpers.Helper, args map[string]Argument)
 
 // Argument describes the basic properties of a sb command argument
 type Argument struct {
