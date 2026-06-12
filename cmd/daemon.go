@@ -43,7 +43,7 @@ func (c *Daemon) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Daemon) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	// IF replication is not enabled, nothing to do
 	replicationQueueConfig := config.GetReplicationQueueConfig()
@@ -51,7 +51,7 @@ func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 
 	// If both replication and ttyrecs offloading is disabled, nothing to do
 	if !replicationQueueConfig.Enabled && !ttyrecsOffloadingConfig.Enabled {
-		return repl, cmdError, types.ErrCommandDisabled
+		return res, types.ErrCommandDisabled
 	}
 
 	// Fail closed before touching the network: both of the features handled by
@@ -62,7 +62,7 @@ func (c *Daemon) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	// path deliberately does not run this check, so a default key never locks
 	// users out of the bastion shell; it only stops the exfiltrating daemon.
 	if err = config.ValidateSecretsEncryption(); err != nil {
-		return repl, cmdError, err
+		return res, err
 	}
 
 	// We need to guess our own hostname

@@ -37,7 +37,7 @@ func (c *Info) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Info) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Info) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	users, err := models.GetAllSBUsers()
 	if err != nil {

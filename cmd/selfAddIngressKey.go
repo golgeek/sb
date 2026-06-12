@@ -40,7 +40,7 @@ func (c *SelfAddIngressKey) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfAddIngressKey) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfAddIngressKey) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	str, keys, _ := ct.User.DisplayPubKeys("ingress")
 
@@ -75,12 +75,12 @@ func (c *SelfAddIngressKey) Execute(ct *commands.Context) (repl models.Replicati
 		}
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account":    ct.User.User.Username,
 		"public-key": pk.String(),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	// We finally display the account's keys (output of selfListIngressKeys)
 	str, _, _ = ct.User.DisplayPubKeys("ingress")

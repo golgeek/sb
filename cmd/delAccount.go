@@ -57,14 +57,14 @@ func (c *DelAccount) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *DelAccount) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *DelAccount) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account":        ct.FormattedArguments["account"],
 		"archive-suffix": fmt.Sprintf("bak_%d", time.Now().Unix()),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

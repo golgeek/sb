@@ -40,13 +40,13 @@ func (c *SelfDisableTOTP) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfDisableTOTP) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfDisableTOTP) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account": ct.User.User.Username,
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

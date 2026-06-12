@@ -37,14 +37,14 @@ func (c *SelfForgetHostkey) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfForgetHostkey) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfForgetHostkey) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account": ct.User.User.Username,
 		"hostkey": ct.FormattedArguments["hostkey"],
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 	if err != nil {
 		return
 	}

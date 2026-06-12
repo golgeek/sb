@@ -67,16 +67,16 @@ func (c *CreateAccount) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *CreateAccount) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *CreateAccount) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"username":   ct.FormattedArguments["username"],
 		"public-key": c.PK.String(),
 	}
-	repl["home-dir"] = fmt.Sprintf("/home/%s", repl["username"])
-	repl["ssh-dir"] = fmt.Sprintf("%s/.ssh", repl["home-dir"])
+	res.Repl["home-dir"] = fmt.Sprintf("/home/%s", res.Repl["username"])
+	res.Repl["ssh-dir"] = fmt.Sprintf("%s/.ssh", res.Repl["home-dir"])
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

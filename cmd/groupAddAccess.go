@@ -68,9 +68,9 @@ func (c *GroupAddAccess) PostExecute(repl models.ReplicationData) (err error) {
 }
 
 // Execute executes the command
-func (c *GroupAddAccess) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupAddAccess) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"group":   ct.Group.Name,
 		"host":    ct.FormattedArguments["host"],
 		"user":    ct.FormattedArguments["user"],
@@ -79,7 +79,7 @@ func (c *GroupAddAccess) Execute(ct *commands.Context) (repl models.ReplicationD
 		"comment": fmt.Sprintf("Access granted by %s on %s", ct.User.User.Username, time.Now().Format(time.RFC3339)),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

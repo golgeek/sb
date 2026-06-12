@@ -34,7 +34,7 @@ func (c *SelfListAccesses) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfListAccesses) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfListAccesses) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	accesses, err := ct.User.GetAccesses()
 	if err != nil {

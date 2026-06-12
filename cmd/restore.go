@@ -52,7 +52,7 @@ func (c *Restore) Checks(ct *commands.Context) (err error) {
 	return
 }
 
-func (c *Restore) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Restore) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	binFilepath := ct.FormattedArguments["file"]
 	tgzFilepath := strings.Replace(ct.FormattedArguments["file"], ".bin", ".tar.gz", 1)

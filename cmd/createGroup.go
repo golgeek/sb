@@ -111,7 +111,7 @@ func (c *CreateGroup) Checks(ct *commands.Context) (err error) {
 }
 
 // Execute executes the command
-func (c *CreateGroup) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *CreateGroup) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	// Ask for the passphrase if requested
 	passphrase, ok := ct.FormattedArguments["encrypted"]
@@ -152,7 +152,7 @@ func (c *CreateGroup) Execute(ct *commands.Context) (repl models.ReplicationData
 	}
 
 	// We gathered all required data without modifying the system
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"name":             ct.FormattedArguments["name"],
 		"owner-account":    ct.FormattedArguments["owner-account"],
 		"files-owner":      filesOwner,
@@ -163,7 +163,7 @@ func (c *CreateGroup) Execute(ct *commands.Context) (repl models.ReplicationData
 	}
 
 	// Let's let the replication function do all the heavy lifting with the provided data
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

@@ -76,7 +76,7 @@ func (c *Ttyrec) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Ttyrec) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	c.displayHeader(ct.User.User.Username)
 
@@ -95,7 +95,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	}
 
 	// We will provide the ttyrec record path as a replication data for the post exec step
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"ttyrec-record-path": fmt.Sprintf("%s/%s.ttyrec", ct.User.GetTtyrecDirectory(), ct.Log.UniqID),
 	}
 
@@ -154,7 +154,7 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	// io.Discard is typed io.Writer, so rec stays an io.Writer that the
 	// successful branch can reassign to the recording encoder.
 	rec := io.Discard
-	if f, ferr := os.Create(repl["ttyrec-record-path"]); ferr != nil {
+	if f, ferr := os.Create(res.Repl["ttyrec-record-path"]); ferr != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: unable to open ttyrec file: %s\n", ferr)
 	} else {
 		defer f.Close()
@@ -205,20 +205,27 @@ func (c *Ttyrec) Execute(ct *commands.Context) (repl models.ReplicationData, cmd
 	err = cmd.Wait()
 	if err != nil {
 
-		var ok bool
-		cmdError, ok = err.(*exec.ExitError)
+		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
 			err = fmt.Errorf("unable to wait for command: %w", err)
 			return
 		}
 
+		// The egress ssh process exited unsuccessfully (non-zero remote exit
+		// or killed by a signal). That is the distant command's outcome, not
+		// an sb failure: report it as the remote exit so main can propagate
+		// the exit code.
 		err = nil
+		res.RemoteExit = &commands.ExitError{Code: exitErr.ExitCode(), Err: exitErr}
 	}
 
 	fmt.Printf("<< Exited shell: %s\n", cmd.ProcessState.String())
 
-	if cmd.ProcessState.ExitCode() > 0 {
-		cmdError = fmt.Errorf("failed to execute command on distant host: %w", cmdError)
+	// A positive exit code means the remote command itself failed; keep the
+	// historical message for it. A signal death (ExitCode -1) keeps the bare
+	// exec wording ("signal: ...") exactly as before.
+	if res.RemoteExit != nil && res.RemoteExit.Code > 0 {
+		res.RemoteExit.Err = fmt.Errorf("failed to execute command on distant host: %w", res.RemoteExit.Err)
 	}
 
 	// If the connection was refused because the distant host's key changed, give

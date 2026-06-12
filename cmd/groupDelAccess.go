@@ -49,16 +49,16 @@ func (c *GroupDelAccess) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *GroupDelAccess) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupDelAccess) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"group": ct.Group.Name,
 		"host":  ct.FormattedArguments["host"],
 		"user":  ct.FormattedArguments["user"],
 		"port":  ct.FormattedArguments["port"],
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

@@ -43,7 +43,7 @@ func (c *SelfPlaySession) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfPlaySession) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfPlaySession) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	filename := fmt.Sprintf("%s.ttyrec", ct.FormattedArguments["session-id"])
 	localFilepath := fmt.Sprintf("%s/%s", ct.User.GetTtyrecDirectory(), filename)

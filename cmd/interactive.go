@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -53,7 +54,7 @@ func (c *Interactive) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Interactive) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Interactive) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	c.Context = ct
 
@@ -82,12 +83,15 @@ func (c *Interactive) Execute(ct *commands.Context) (repl models.ReplicationData
 
 		err = cmd.Wait()
 		if err != nil {
-			var ok bool
-			cmdError, ok = err.(*exec.ExitError)
+			exitErr, ok := err.(*exec.ExitError)
 			if !ok {
 				return
 			}
+			// The wrapped mosh-server exited unsuccessfully. That is the
+			// session's outcome, not an sb failure: report it as the remote
+			// exit so main can propagate the exit code.
 			err = nil
+			res.RemoteExit = &commands.ExitError{Code: exitErr.ExitCode(), Err: exitErr}
 		}
 
 		return
@@ -177,7 +181,9 @@ func (c *Interactive) promptExecutor(command string) {
 
 	err = root.Execute()
 	err = commands.WithCommandSuggestion(err, commandLine)
-	if err != nil && err != types.ErrMissingArguments {
+	// errors.Is, not ==: the dispatch layers may wrap the sentinel, which a
+	// plain comparison would miss.
+	if err != nil && !errors.Is(err, types.ErrMissingArguments) {
 		fmt.Printf("Error while executing command: %s\n", err)
 	}
 	log.SessionEndDate = time.Now()

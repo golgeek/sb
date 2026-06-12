@@ -43,7 +43,7 @@ func (c *Help) Checks(ct *commands.Context) error {
 // help of the command named by the trailing words ("help self accesses
 // list"). Unknown names fall back to the root help rather than failing — help
 // must never refuse to help.
-func (c *Help) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Help) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	root := commands.BuildRootCommand(ct.Log, ct.User)
 	root.SetOut(os.Stdout)

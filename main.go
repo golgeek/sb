@@ -195,19 +195,44 @@ func TerminateSession(log *models.Log, err error) {
 		fmt.Fprintf(os.Stderr, "WARNING: unable to persist audit log: %s\n", saveErr)
 	}
 
-	var statusCode int
-	switch err {
-	case nil:
-		statusCode = 0
-	case types.ErrCommandDisabled:
-		statusCode = 126
-		fmt.Printf("This command is disabled\n")
-	case types.ErrMissingArguments:
-		statusCode = 2
-	default:
-		statusCode = 1
-		fmt.Printf("Error while executing command: %s\n", err)
+	statusCode, message := sessionExitStatus(err)
+	if message != "" {
+		fmt.Println(message)
 	}
 
 	os.Exit(statusCode)
+}
+
+// sessionExitStatus maps the dispatch result to the bastion's process exit
+// code and the message to print, kept separate from TerminateSession so the
+// mapping is unit-testable (TerminateSession calls os.Exit).
+//
+// The sentinel checks use errors.Is — the dispatch layers may wrap a sentinel
+// (e.g. with a "did you mean" suggestion), which the historical == comparison
+// silently missed. A *commands.ExitError carries the distant command's real
+// exit code: it becomes the bastion's own exit code (like plain ssh), so
+// scripts driving `ssh bastion host -- cmd` observe the remote status rather
+// than a flat 1. Non-positive codes (the exec convention for a signal death)
+// map to the generic failure code 1, which a process exit code cannot
+// express more faithfully.
+func sessionExitStatus(err error) (statusCode int, message string) {
+
+	var remoteExit *commands.ExitError
+
+	switch {
+	case err == nil:
+		return 0, ""
+	case errors.Is(err, types.ErrCommandDisabled):
+		return 126, "This command is disabled"
+	case errors.Is(err, types.ErrMissingArguments):
+		return 2, ""
+	case errors.As(err, &remoteExit):
+		statusCode = remoteExit.Code
+		if statusCode <= 0 {
+			statusCode = 1
+		}
+		return statusCode, fmt.Sprintf("Error while executing command: %s", err)
+	default:
+		return 1, fmt.Sprintf("Error while executing command: %s", err)
+	}
 }

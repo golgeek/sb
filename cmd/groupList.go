@@ -39,7 +39,7 @@ func (c *GroupList) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *GroupList) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupList) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	var groups map[string]*models.Group
 

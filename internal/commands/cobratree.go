@@ -179,7 +179,7 @@ func findOrCreateChild(parent *cobra.Command, word string) *cobra.Command {
 
 // newLeafCommand builds the executable cobra command for a spec and wires the
 // adapter between cobra's single-error RunE world and the sb Command
-// interface (Checks + Execute returning replication data and two errors).
+// interface (Checks + Execute returning a Result and an internal error).
 //
 // The execution pipeline mirrors the historical BuildSBCommand /
 // BuildAndExecuteSBCommand pair exactly:
@@ -284,13 +284,13 @@ func newLeafCommand(spec *CommandSpec, log *models.Log, user *models.User, deps 
 			return err
 		}
 
-		replicationData, cmdErr, err := inst.Execute(ct)
+		res, err := inst.Execute(ct)
 		if err != nil {
 			return err
 		}
 
 		if deps.replicationOn() && IsReplicableCommand(spec.Name) {
-			repl, err := models.NewReplicationEntry(spec.Name, replicationData)
+			repl, err := models.NewReplicationEntry(spec.Name, res.Repl)
 			if err != nil {
 				return err
 			}
@@ -299,9 +299,15 @@ func newLeafCommand(spec *CommandSpec, log *models.Log, user *models.User, deps 
 			}
 		}
 
-		// cmdErr is the distant command's exit error (not an sb failure); it
-		// propagates so the caller can map it to the process exit code.
-		return cmdErr
+		// A remote exit is the distant command's failure, not an sb failure;
+		// it propagates as a typed *ExitError so the top-level caller can map
+		// it to the process exit code with errors.As. The nil check matters:
+		// returning a nil *ExitError directly would yield a non-nil error
+		// interface value.
+		if res.RemoteExit != nil {
+			return res.RemoteExit
+		}
+		return nil
 	}
 
 	return leaf

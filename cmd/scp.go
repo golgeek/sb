@@ -96,7 +96,7 @@ func (c *Scp) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Scp) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	// We have three cases:
 	//   - user calls scp with no arguments, we need to display the help
@@ -171,12 +171,15 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 
 	err = cmd.Wait()
 	if err != nil {
-		var ok bool
-		cmdError, ok = err.(*exec.ExitError)
+		exitErr, ok := err.(*exec.ExitError)
 		if !ok {
 			return
 		}
+		// The egress transfer process exited unsuccessfully. That is the
+		// distant side's outcome, not an sb failure: report it as the remote
+		// exit so main can propagate the exit code.
 		err = nil
+		res.RemoteExit = &commands.ExitError{Code: exitErr.ExitCode(), Err: exitErr}
 	}
 
 	// If the host key changed, point the user at the forget command (gated on trust).

@@ -33,7 +33,7 @@ func (c *SelfListEgressKeys) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfListEgressKeys) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfListEgressKeys) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	str, _, err := ct.User.DisplayPubKeys("egress")
 	if err != nil {

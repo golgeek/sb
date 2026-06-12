@@ -45,16 +45,16 @@ func (c *SelfDelAccess) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfDelAccess) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfDelAccess) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account": ct.User.User.Username,
 		"host":    ct.FormattedArguments["host"],
 		"user":    ct.FormattedArguments["user"],
 		"port":    ct.FormattedArguments["port"],
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }
