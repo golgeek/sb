@@ -107,12 +107,12 @@ func (c *Scp) Execute(ct *commands.Context) (repl models.ReplicationData, cmdErr
 
 	// case with no arguments at all
 	if !ok && ct.AI == nil {
-		// Let's just print the help
-		spec, errCmd := commands.GetSpec("scp")
-		if errCmd != nil {
-			return repl, cmdError, errCmd
+		// Let's just print the cobra-generated help for this command
+		root := commands.BuildRootCommand(ct.Log, ct.User)
+		root.SetOut(os.Stdout)
+		if leaf, _, ferr := root.Find([]string{"scp"}); ferr == nil && leaf != nil {
+			err = leaf.Help()
 		}
-		commands.DisplayHelpers(spec.Help, spec.Args)
 		return
 	}
 

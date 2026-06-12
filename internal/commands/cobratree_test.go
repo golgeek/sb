@@ -370,6 +370,25 @@ func TestAdapterReplicationSkipsNonReplicable(t *testing.T) {
 	require.Zero(t, count, "backup must never write a replication outbox entry")
 }
 
+// TestTrustedCommandsUnreachableThroughTree asserts executing a trusted
+// command name through the tree fails as an unknown command — the guarantee
+// the interactive REPL relies on, since its executor feeds user lines
+// straight into a fresh tree.
+func TestTrustedCommandsUnreachableThroughTree(t *testing.T) {
+
+	r := NewRegistry()
+	r.MustRegister(specStub("info", nil, false))
+	r.MustRegister(specStub("ttyrec", nil, true))
+	r.MustRegister(specStub("daemon", nil, true))
+	r.MustRegister(specStub("interactive", nil, true))
+
+	for _, trusted := range []string{"ttyrec", "daemon", "interactive"} {
+		_, err := execute(r, []string{trusted, "--client", "ssh"}, hermeticDeps()...)
+		require.Error(t, err, "trusted command %q must not execute through the tree", trusted)
+		require.Contains(t, err.Error(), "unknown command", "trusted %q must look like an unknown command", trusted)
+	}
+}
+
 // TestIntermediateCommandShowsHelp asserts invoking a bare intermediate word
 // (e.g. "sb self") displays its subtree help instead of failing.
 func TestIntermediateCommandShowsHelp(t *testing.T) {

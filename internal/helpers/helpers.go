@@ -170,34 +170,6 @@ func ParseArguments(clArgs []string) (c string, ca []string, ba map[string]bool,
 	return
 }
 
-func RegroupCommandArguments(clArgs []string) (args []string) {
-
-	// Nothing to regroup for an empty argument list, and indexing clArgs[0]
-	// below would panic. This is reachable from ParseArguments when a mosh
-	// command line consumes every token (e.g. "mosh-server new" with no trailing
-	// command), so guard it rather than relying on every caller passing a
-	// non-empty slice.
-	if len(clArgs) == 0 {
-		return clArgs
-	}
-
-	var j int
-	firstArg := clArgs[0]
-	for j = 1; j < len(clArgs); j++ {
-
-		arg := clArgs[j]
-
-		if strings.HasPrefix(arg, "-") {
-			break
-		}
-
-		firstArg = fmt.Sprintf("%s %s", firstArg, arg)
-	}
-	args = append([]string{firstArg}, clArgs[j:]...)
-
-	return
-}
-
 // ParseCommandLine parses the string passed to us by SSH to an array of args
 func ParseCommandLine(cmd string) ([]string, error) {
 	var args []string

@@ -152,22 +152,31 @@ func (c *Interactive) promptExecutor(command string) {
 		fmt.Printf("error: %s", err)
 		return
 	}
-
-	commandLine = helpers.RegroupCommandArguments(commandLine)
+	if len(commandLine) == 0 {
+		return
+	}
 
 	if commandLine[0] == "exit" {
 		os.Exit(0)
 	}
 
-	// Resolve through the flat registry; trusted commands (interactive,
-	// ttyrec, daemon) must stay unreachable from the REPL.
-	if spec, errCmd := commands.GetSpec(commandLine[0]); errCmd != nil || spec.Trusted {
-		fmt.Println("command not found")
-		return
-	}
-
 	log := models.NewLog(c.Context.User.User.Username, []string{config.GetGlobalDatabasePath(), c.Context.User.GetLocalLogDatabasePath()}, commandLine)
-	err = commands.BuildAndExecuteSBCommand(log, c.Context.User, commandLine...)
+
+	// Execute through a FRESH cobra tree: cobra retains parsed-flag state
+	// between Execute calls, and the REPL is the one place a single process
+	// runs many commands, so a stale tree would leak flag values across
+	// lines. The tree only contains non-trusted specs, so interactive,
+	// ttyrec and daemon resolve to "unknown command" here exactly as before.
+	root := commands.BuildRootCommand(log, c.Context.User)
+	root.SetArgs(commands.CanonicalTokens(commandLine))
+
+	// The REPL prints errors itself and must not exit on them; suppress
+	// cobra's own error printing and the usage dump on execution failures.
+	root.SilenceErrors = true
+	root.SilenceUsage = true
+
+	err = root.Execute()
+	err = commands.WithCommandSuggestion(err, commandLine)
 	if err != nil && err != types.ErrMissingArguments {
 		fmt.Printf("Error while executing command: %s\n", err)
 	}

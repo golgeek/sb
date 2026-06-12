@@ -1,16 +1,21 @@
 package cmd
 
 import (
-	"fmt"
-	"strconv"
+	"os"
 
 	"github.com/golgeek/sb/internal/commands"
-	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 )
 
-// Help describes the help command
+// Help is the user-facing help command. Cobra owns the help content: Execute
+// renders the generated tree's help text, so the listing can never drift from
+// the registered commands. The command itself stays registered as a spec —
+// rather than relying on cobra's auto-generated help command — for two
+// reasons: "help" is part of the persisted replication name contract (peer
+// outboxes may carry it as an action and must keep resolving it), and the
+// front-end's first-word dispatch only routes registered command words into
+// the tree.
 type Help struct {
 }
 
@@ -20,8 +25,8 @@ func init() {
 		Rights: models.Public,
 		Help: helpers.Helper{
 			Header:      "display this help",
-			Usage:       "help",
-			Description: "display this help",
+			Usage:       "help [command words...]",
+			Description: "display the bastion help, or a specific command's help when its name follows",
 		},
 		Args: map[string]commands.Argument{},
 		New:  func() commands.Command { return new(Help) },
@@ -34,60 +39,23 @@ func (c *Help) Checks(ct *commands.Context) error {
 	return nil
 }
 
-// Execute executes the command
+// Execute renders the cobra-generated help: the root help by default, or the
+// help of the command named by the trailing words ("help self accesses
+// list"). Unknown names fall back to the root help rather than failing — help
+// must never refuse to help.
 func (c *Help) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
 
-	specs := commands.Specs()
+	root := commands.BuildRootCommand(ct.Log, ct.User)
+	root.SetOut(os.Stdout)
 
-	maxLength := 0
-	listable := make([]*commands.CommandSpec, 0, len(specs))
-
-	for _, spec := range specs {
-
-		// Trusted commands (interactive, ttyrec, daemon) are dispatched by
-		// the front-end only and must never be advertised to users.
-		if spec.Trusted {
-			continue
-		}
-
-		if len(spec.Name) > maxLength {
-			maxLength = len(spec.Name)
-		}
-		listable = append(listable, spec)
-	}
-
-	fmt.Printf("Usage: %s [OPTION | HOST | COMMAND]\n", config.GetSBName())
-	fmt.Println()
-	fmt.Printf("Available options:\n")
-	fmt.Printf("  -i: launch sb in interactive mode\n")
-	fmt.Println()
-	fmt.Printf("Host supported formats:\n")
-	fmt.Printf("  - full formats:\n")
-	fmt.Printf("    - user@example.com:22\n")
-	fmt.Printf("    - user@127.0.0.1:22\n")
-	fmt.Printf("  - short formats*:\n")
-	fmt.Printf("    - user@example.com : port will be retrieved from granted access\n")
-	fmt.Printf("    - example.com:22   : user will be retrieved from granted access\n")
-	fmt.Printf("    - example.com      : port and user will be retrieved from granted access\n")
-	fmt.Printf("  - alias*:\n")
-	fmt.Printf("    - user@alias:port  : host will be retrieved from granted access\n")
-	fmt.Printf("    - user@alias       : host and port will be retrieved from granted access\n")
-	fmt.Printf("    - alias:port       : host and user will be retrieved from granted access\n")
-	fmt.Printf("    - alias            : host, user and port will be retrieved from granted access\n")
-	fmt.Printf("* If multiple granted access match a short format or an alias,\n")
-	fmt.Printf("user will be interactively prompted to choose the desired access\n")
-	fmt.Println()
-	fmt.Println("Available commands:")
-	for _, spec := range listable {
-
-		if spec.Rights >= models.Private {
-			continue
-		}
-
-		if spec.Rights < models.SBOwner || ct.User.IsOwnerOfGroup("owners") {
-			fmt.Printf("  - %-"+strconv.Itoa(maxLength)+"s : %s\n", spec.Name, spec.Help.Header)
+	target := root
+	if len(ct.RawArguments) > 0 {
+		if found, _, ferr := root.Find(ct.RawArguments); ferr == nil && found != nil {
+			target = found
 		}
 	}
+
+	err = target.Help()
 
 	return
 }

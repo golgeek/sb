@@ -6,60 +6,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// These tests pin the tokenization behavior around RegroupCommandArguments,
-// which joins all leading non-flag tokens into one space-separated token so
-// the flat command registry can look up multi-word command names as a single
-// string ("self accesses list").
-//
-// The front-end (ParseArguments) no longer regroups: dispatch is first-word
-// based and cobra walks the words. The interactive REPL still calls
-// RegroupCommandArguments, so the joining behavior itself stays pinned here
-// until the REPL executor moves to the cobra tree as well.
-
-// TestRegroupCommandArguments pins the joining behavior in isolation.
-func TestRegroupCommandArguments(t *testing.T) {
-
-	t.Run("leading words join into one token", func(t *testing.T) {
-		require.Equal(t,
-			[]string{"self accesses list"},
-			RegroupCommandArguments([]string{"self", "accesses", "list"}))
-	})
-
-	t.Run("joining stops at the first dash token", func(t *testing.T) {
-		require.Equal(t,
-			[]string{"self ingress-key add", "--public-key", "KEY"},
-			RegroupCommandArguments([]string{"self", "ingress-key", "add", "--public-key", "KEY"}))
-	})
-
-	t.Run("access token glues to a trailing remote command", func(t *testing.T) {
-		// The join is name-agnostic, so an access plus a remote command
-		// becomes one invalid token. This is why the front-end stopped
-		// regrouping ("sb user@host uptime" now works); the REPL has no
-		// access path, so the quirk is harmless there.
-		require.Equal(t,
-			[]string{"user@host uptime"},
-			RegroupCommandArguments([]string{"user@host", "uptime"}))
-	})
-
-	t.Run("explicit -- protects a trailing remote command", func(t *testing.T) {
-		// The reliable passthrough form today: the "--" token starts with a
-		// dash, so the join stops before it and the access token stays
-		// intact. This end-to-end behavior must keep working after the port.
-		require.Equal(t,
-			[]string{"user@host", "--", "uptime", "-a"},
-			RegroupCommandArguments([]string{"user@host", "--", "uptime", "-a"}))
-	})
-
-	t.Run("single token and empty input pass through", func(t *testing.T) {
-		require.Equal(t, []string{"info"}, RegroupCommandArguments([]string{"info"}))
-		require.Empty(t, RegroupCommandArguments([]string{}))
-	})
-}
-
 // TestParseArgumentsTokenization pins what main.go receives for the
-// SSH-forced command lines users type, now that ParseArguments no longer
-// regroups leading tokens (dispatch is first-word based and cobra walks the
-// words). Each case notes the historical behavior it replaces.
+// SSH-forced command lines users type. Historically, ParseArguments ended
+// with RegroupCommandArguments, which joined all leading non-flag tokens into
+// one space-separated token so the flat command registry could look up
+// multi-word command names as a single string ("self accesses list") — at
+// the cost of also gluing an access to its trailing remote command into one
+// invalid token. Dispatch is first-word based now and cobra walks the words,
+// so tokens stay split; each case notes the historical behavior it replaces.
 func TestParseArgumentsTokenization(t *testing.T) {
 
 	t.Run("multi-word command arrives split", func(t *testing.T) {
