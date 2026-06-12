@@ -6,6 +6,21 @@ import (
 	"github.com/golgeek/sb/internal/models"
 )
 
+// NoMatchingAccessError reports that the user holds no grant matching the
+// requested target. It is a distinct type so the front-end can tell "the
+// access path matched nothing" apart from every other failure and offer a
+// command suggestion for what was probably a mistyped command name, without
+// ever weakening the refusal itself.
+type NoMatchingAccessError struct {
+	// Target is the short form of the access the user asked for.
+	Target string
+}
+
+// Error returns the historical refusal message unchanged.
+func (e *NoMatchingAccessError) Error() string {
+	return fmt.Sprintf("user can't access the host %s", e.Target)
+}
+
 // accessBuilderFunc resolves a user-supplied access string ("user@host[:port]"
 // or a bare alias) into a models.Access. The production implementation is
 // models.BuildSBAccessFromUserInput, which performs a DNS resolution of the
@@ -204,7 +219,7 @@ func (a *authorizer) authorizeAccess(user *models.User, ct *Context) error {
 	}
 	if !ai.Authorized {
 		logAuditWarn(ct.Log.SetAllowed(false))
-		return fmt.Errorf("user can't access the host %s", ba.ShortString())
+		return &NoMatchingAccessError{Target: ba.ShortString()}
 	}
 
 	ct.AI = ai

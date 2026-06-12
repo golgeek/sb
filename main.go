@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -142,10 +143,16 @@ func main() {
 
 		err = root.Execute()
 
+		// A typo can land in another branch of the tree, where cobra's
+		// in-parent suggester cannot see the real command ("group list" vs
+		// "groups list"): enrich unknown-command errors with a fuzzy match
+		// over the full flat name and alias set.
+		err = commands.WithCommandSuggestion(err, arguments)
+
 	} else {
 
 		if !models.IsAValidSBAccessFromUserInput(first) {
-			TerminateSession(log, types.ErrUnknownCommand)
+			TerminateSession(log, commands.WithCommandSuggestion(types.ErrUnknownCommand, arguments))
 		}
 
 		// We'll need to know if we're running mosh or ssh, here
@@ -159,8 +166,21 @@ func main() {
 		}
 
 		// We have an alias or a host, so we want to SSH connect to it while ttyrec-ing. Let's use our ttyrec command for that!
+		typed := arguments
 		arguments = append([]string{config.GetSSHCommand()}, args...)
 		err = commands.BuildAndExecuteSBCommand(log, currentUser, arguments...)
+
+		// The target had a valid access shape but matched none of the user's
+		// grants — it may well have been a mistyped command name instead
+		// ("grup info"). Suggest one when something is close, keeping the
+		// refusal itself untouched. A matching grant never reaches this
+		// branch, so legitimate hosts are unaffected.
+		var noAccess *commands.NoMatchingAccessError
+		if errors.As(err, &noAccess) {
+			if suggestion, ok := commands.SuggestCommandLine(typed); ok {
+				err = fmt.Errorf("%s — did you mean the command %q?", err.Error(), suggestion)
+			}
+		}
 	}
 
 	TerminateSession(log, err)

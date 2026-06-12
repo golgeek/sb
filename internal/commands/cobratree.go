@@ -104,8 +104,32 @@ func (r *Registry) BuildRootCommand(log *models.Log, user *models.User, opts ...
 	}
 
 	root := &cobra.Command{
-		Use:   config.GetSBName(),
+		Use:   fmt.Sprintf("%s [OPTION | HOST | COMMAND]", config.GetSBName()),
 		Short: fmt.Sprintf("%s SSH bastion", config.GetSBName()),
+		// The long help carries the bastion-specific entrypoint
+		// documentation that no generated command listing can express: the
+		// -i front-end option and the accepted host/alias target formats.
+		Long: fmt.Sprintf(`%s SSH bastion.
+
+Available options:
+  -i: launch %s in interactive mode
+
+Host supported formats:
+  - full formats:
+    - user@example.com:22
+    - user@127.0.0.1:22
+  - short formats*:
+    - user@example.com : port will be retrieved from granted access
+    - example.com:22   : user will be retrieved from granted access
+    - example.com      : port and user will be retrieved from granted access
+  - alias*:
+    - user@alias:port  : host will be retrieved from granted access
+    - user@alias       : host and port will be retrieved from granted access
+    - alias:port       : host and user will be retrieved from granted access
+    - alias            : host, user and port will be retrieved from granted access
+* If multiple granted access match a short format or an alias,
+user will be interactively prompted to choose the desired access`,
+			config.GetSBName(), config.GetSBName()),
 		// The bastion's forced-command entrypoint is not a shell environment
 		// where generated shell-completion scripts make sense; keeping the
 		// auto-generated "completion" command out also keeps the user-facing

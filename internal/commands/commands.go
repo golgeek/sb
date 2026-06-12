@@ -5,14 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"sort"
-	"strconv"
 	"strings"
 
 	"github.com/golgeek/sb/internal/config"
-	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/golgeek/sb/internal/types"
 )
 
 // logAuditWarn reports a best-effort audit-log persistence failure to stderr
@@ -189,16 +185,11 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 	// Log the command we used, as typed (canonical name or alias)
 	logAuditWarn(log.SetCommand(args[0]))
 
-	// Let's start by displaying the helper if user asked for it
-	if len(args) > 1 && (args[1] == "help" || args[1] == "?") {
-		DisplayHelpers(spec.Help, spec.Args)
-		return bc, ct, types.ErrMissingArguments
-	}
-
-	// Then, let's build the arguments list (and display the helper if there are missing values)
+	// Build the arguments list. Cobra owns interactive help now; this path
+	// only ever receives front-end-assembled trusted arguments, so there is
+	// no helper to display on a validation error.
 	ct.FormattedArguments, ct.RawArguments, err = buildArgumentsList(spec.Args, args[1:])
 	if err != nil {
-		DisplayHelpers(spec.Help, spec.Args)
 		return bc, ct, err
 	}
 
@@ -230,44 +221,4 @@ func BuildSBCommand(log *models.Log, user *models.User, args ...string) (bc Comm
 	logAuditWarn(log.SetAllowed(true))
 
 	return
-}
-
-// DisplayHelpers displays the helper for a command
-func DisplayHelpers(helpers helpers.Helper, arguments map[string]Argument) {
-	fmt.Printf("Usage      : %s\n", helpers.Usage)
-	fmt.Printf("Description: %s\n", helpers.Description)
-	if len(arguments) > 0 {
-		fmt.Println("Options    :")
-
-		// We'll display arguments in alphabetical order, required first, then optional
-		// This is not a good algorithm!
-		order := make([]string, 0, len(arguments))
-		maxLength := 0
-		for argumentName, argument := range arguments {
-			if len(argumentName) > maxLength {
-				maxLength = len(argumentName)
-			}
-
-			prefix := "Z"
-			if argument.Required {
-				prefix = "A"
-			}
-			order = append(order, fmt.Sprintf("%s::%s", prefix, argumentName))
-		}
-		sort.Strings(order)
-
-		for _, a := range order {
-			argumentName := a
-			splitted := strings.Split(a, "::")
-			if len(splitted) > 1 {
-				argumentName = splitted[1]
-			}
-			argument := arguments[argumentName]
-			needed := "[OPTIONAL]"
-			if argument.Required {
-				needed = "[REQUIRED]"
-			}
-			fmt.Printf("    --%-"+strconv.Itoa(maxLength)+"s: %s %s\n", argumentName, needed, argument.Description)
-		}
-	}
 }
