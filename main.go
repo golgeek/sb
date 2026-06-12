@@ -29,51 +29,18 @@ func main() {
 		os.Exit(1)
 	}
 
-	// If replication is enabled
+	// On replicated setups, snapshot the user's TOTP state into the
+	// replication outbox so a recovery code consumed by PAM during this very
+	// authentication gets invalidated on the peer instances too. Deliberately
+	// best-effort: a failed sync warns loudly but never blocks the session —
+	// it retries on the user's next invocation, and failing closed here would
+	// lock every TOTP user out of the bastion on any outbox hiccup. (The
+	// historical inline version aborted the whole invocation, partly with
+	// exit code 0.)
 	if config.GetReplicationEnabled() {
-
-		totpEnabled, secret, totpEmergency, totpErr := currentUser.GetTOTP()
-
-		// A corrupt or unreadable TOTP file must not abort every command this user
-		// runs: warn and skip the recovery-code replication sync rather than
-		// failing the whole invocation.
-		if totpErr != nil {
-			fmt.Printf("warning: unable to read TOTP state, skipping replication sync: %s\n", totpErr)
-		} else if totpEnabled {
-
-			// Maybe the user used a recovery code, and we need to sync it to the other instances
-			dbHandler, err := models.GetReplicationGormDB(config.GetReplicationDatabasePath())
-			if err != nil {
-				fmt.Printf("unable to init replication db handle: %s\n", err)
-				return
-			}
-			sqlDB, err := dbHandler.DB()
-			if err != nil {
-				fmt.Printf("unable to init replication db handle: %s\n", err)
-				return
-			}
-
-			replicationData := models.ReplicationData{
-				"account":      currentUser.User.Username,
-				"secret":       secret,
-				"random-codes": strings.Join(totpEmergency, ";"),
-			}
-			repl, err := models.NewReplicationEntry("self totp emergency-codes generate", replicationData)
-			if err != nil {
-				fmt.Printf("unable to handle create replication entry: %s\n", err)
-				return
-			}
-			err = repl.Save(dbHandler)
-			if err != nil {
-				sqlDB.Close()
-				fmt.Printf("unable to save replication entry: %s\n", err)
-				os.Exit(1)
-			}
-
-			sqlDB.Close()
-
+		if err := models.SyncTOTPState(currentUser, config.GetReplicationDatabasePath()); err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: unable to sync TOTP state to the replication outbox, peer instances may be stale: %s\n", err)
 		}
-
 	}
 
 	// Parse the command line
