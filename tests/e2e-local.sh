@@ -27,26 +27,49 @@ DEMO_DIR="${REPO_ROOT}/demo"
 SB1_PORT=22001
 SB2_PORT=22002
 
-# How long to wait for the bastions' SSH ports to start accepting connections
-# before giving up (seconds).
+# The demo account and ingress key the suite connects with (provisioned by the
+# containers' entrypoint); the readiness probe uses the same credentials.
+SB_USER=t800
+SB_KEY="${DEMO_DIR}/assets/ssh-keys/id_ed25519"
+
+# How long to wait for the bastions to become fully usable before giving up
+# (seconds).
 WAIT_TIMEOUT=120
 
-# tcp_open <port> — return success if a TCP connection to 127.0.0.1:<port>
-# succeeds. Uses bash's /dev/tcp so we don't depend on nc(1) being installed.
-tcp_open() {
+# ssh_ready <port> — return success if a real SSH exec on the bastion works:
+# authenticate as the demo account and run the `info` command end to end. A
+# bare TCP-connect (or even an SSH banner) is not enough: sshd starts accepting
+# connections while the container's provisioning is still creating the demo
+# account, and a connection in that window is closed before the forced command
+# runs — the suite's first command then flakes with "Connection closed by".
+# Only a successful exec proves the account, its key and the sb binary are all
+# in place.
+#
+# No BatchMode here, on purpose: the bastion's sshd requires
+# "publickey,keyboard-interactive" (the keyboard-interactive step is the PAM
+# TOTP hook, which completes without prompting when the account has no TOTP),
+# and BatchMode disables keyboard-interactive client-side, turning every probe
+# into "Permission denied". Stdin comes from /dev/null instead so the probe
+# can never hang waiting for input.
+ssh_ready() {
     local port="$1"
-    # The subshell + redirect either connects or fails; suppress its output.
-    (exec 3<>"/dev/tcp/127.0.0.1/${port}") 2>/dev/null
+    ssh -i "${SB_KEY}" \
+        -o IdentitiesOnly=yes \
+        -o StrictHostKeyChecking=no \
+        -o UserKnownHostsFile=/dev/null \
+        -o ConnectTimeout=5 \
+        -o LogLevel=ERROR \
+        -p "${port}" "${SB_USER}@127.0.0.1" -- info >/dev/null 2>&1 </dev/null
 }
 
-# wait_for_port <port> — block until the port accepts connections or we hit the
-# timeout. Fails closed (non-zero) so the caller can abort the run.
-wait_for_port() {
+# wait_for_ssh <port> — block until the bastion answers a real SSH exec or we
+# hit the timeout. Fails closed (non-zero) so the caller can abort the run.
+wait_for_ssh() {
     local port="$1"
     local waited=0
-    until tcp_open "${port}"; do
+    until ssh_ready "${port}"; do
         if (( waited >= WAIT_TIMEOUT )); then
-            echo "Timed out after ${WAIT_TIMEOUT}s waiting for 127.0.0.1:${port}" >&2
+            echo "Timed out after ${WAIT_TIMEOUT}s waiting for a working SSH exec on 127.0.0.1:${port}" >&2
             return 1
         fi
         sleep 2
@@ -77,9 +100,13 @@ build_flag="--build"
 # shellcheck disable=SC2086  # build_flag is intentionally word-split (may be empty).
 (cd "${DEMO_DIR}" && docker compose up -d ${build_flag})
 
-echo "Waiting for the bastions to accept SSH connections..."
-wait_for_port "${SB1_PORT}"
-wait_for_port "${SB2_PORT}"
+# The probe authenticates with the demo key, which ssh refuses to use when the
+# checked-out file is group/world-readable.
+chmod 600 "${SB_KEY}"
+
+echo "Waiting for the bastions to answer a real SSH exec..."
+wait_for_ssh "${SB1_PORT}"
+wait_for_ssh "${SB2_PORT}"
 
 echo "Running the e2e suite..."
 # Run from the repo root, which is what tests/e2e.sh expects.
