@@ -38,7 +38,7 @@ func (c *GroupListAccesses) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *GroupListAccesses) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupListAccesses) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	accesses, err := ct.Group.GetAccesses()
 	if err != nil {

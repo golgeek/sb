@@ -47,7 +47,7 @@ func (c *SelfEnableTOTP) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfEnableTOTP) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfEnableTOTP) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	green := color.New(color.FgGreen).SprintFunc()
 
@@ -108,13 +108,13 @@ func (c *SelfEnableTOTP) Execute(ct *commands.Context) (repl models.ReplicationD
 		return
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account":      ct.User.User.Username,
 		"secret":       key.Secret(),
 		"random-codes": strings.Join(randomCodes, ";"),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 	if err != nil {
 		return
 	}

@@ -52,7 +52,7 @@ func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string
 	}
 
 	// Call the execute method
-	replicationData, cmdErr, err := bc.Execute(ct)
+	res, err := bc.Execute(ct)
 	if err != nil {
 		return
 	}
@@ -64,7 +64,7 @@ func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string
 
 		var repl *models.Replication
 
-		repl, err = models.NewReplicationEntry(args[0], replicationData)
+		repl, err = models.NewReplicationEntry(args[0], res.Repl)
 		if err != nil {
 			return
 		}
@@ -76,7 +76,14 @@ func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string
 
 	}
 
-	return cmdErr
+	// A remote exit is the distant command's failure, not an sb failure; it
+	// propagates as a typed *ExitError so the top-level caller can map it to
+	// the process exit code with errors.As. The nil check matters: assigning
+	// a nil *ExitError to err would yield a non-nil error interface value.
+	if res.RemoteExit != nil {
+		err = res.RemoteExit
+	}
+	return
 }
 
 // buildArgumentsList constructs a map[string]string from the arguments lists.

@@ -74,7 +74,7 @@ func (c *SelfGenerateEgressKey) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfGenerateEgressKey) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfGenerateEgressKey) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	passphrase, ok := ct.FormattedArguments["encrypted"]
 	if ok {
@@ -112,7 +112,7 @@ func (c *SelfGenerateEgressKey) Execute(ct *commands.Context) (repl models.Repli
 		return
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"files-owner":      filesOwner,
 		"private-key":      privateKey,
 		"public-key":       publicKey,
@@ -120,7 +120,7 @@ func (c *SelfGenerateEgressKey) Execute(ct *commands.Context) (repl models.Repli
 		"public-key-file":  publicKeyFile,
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 	if err != nil {
 		return
 	}

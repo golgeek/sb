@@ -162,6 +162,33 @@ Available commands:
   - self totp enable                   : enable TOTP on the account
 ```
 
+## Exit codes
+
+`sb` behaves like plain `ssh` for scripting: when you run a command on a distant host
+through the bastion, the distant command's exit code becomes `sb`'s own exit code, so
+`$?` on your side reflects what actually happened on the host. The same applies to SCP
+transfers and mosh sessions.
+
+```console
+t1000@skynet:~# sb root@host.domain.tld -- true ; echo $?
+...
+0
+t1000@skynet:~# sb root@host.domain.tld -- exit 3 ; echo $?
+...
+Error while executing command: failed to execute command on distant host: exit status 3
+3
+```
+
+The full mapping:
+
+| Exit code | Meaning |
+|-----------|---------|
+| `0` | Success (including a remote command that exited `0`). |
+| `1` | An `sb` error: refused authorization, unknown command, internal failure — or a remote process killed by a signal, which a process exit code cannot express. |
+| `2` | Missing arguments. |
+| `126` | The command is disabled on this instance (e.g. `daemon` invoked while replication and TTYRec offloading are both disabled). |
+| _other_ | The distant command's own exit code, propagated as-is. |
+
 ## Egress host-key verification
 
 When `sb` connects you to a distant host (interactive sessions and SCP alike), it pins the

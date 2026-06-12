@@ -38,7 +38,7 @@ func (c *GroupInfo) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *GroupInfo) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupInfo) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	fmt.Printf("Here are the info of group %s:\n", ct.Group.Name)
 

@@ -51,7 +51,7 @@ func (c *SelfGenerateTOTPCodes) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfGenerateTOTPCodes) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfGenerateTOTPCodes) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	// Re-read the current secret so the regenerated codes stay bound to it. Fail
 	// closed if it cannot be read rather than replicating an empty secret.
@@ -69,13 +69,13 @@ func (c *SelfGenerateTOTPCodes) Execute(ct *commands.Context) (repl models.Repli
 		return
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account":      ct.User.User.Username,
 		"secret":       currentSecret,
 		"random-codes": strings.Join(random, ";"),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 	if err != nil {
 		return
 	}

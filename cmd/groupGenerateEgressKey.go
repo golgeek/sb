@@ -80,7 +80,7 @@ func (c *GroupGenerateEgressKey) Checks(ct *commands.Context) (err error) {
 }
 
 // Execute executes the command
-func (c *GroupGenerateEgressKey) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupGenerateEgressKey) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	passphrase, ok := ct.FormattedArguments["encrypted"]
 	if ok {
@@ -118,7 +118,7 @@ func (c *GroupGenerateEgressKey) Execute(ct *commands.Context) (repl models.Repl
 		return
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"files-owner":      filesOwner,
 		"private-key":      privateKey,
 		"public-key":       publicKey,
@@ -126,7 +126,7 @@ func (c *GroupGenerateEgressKey) Execute(ct *commands.Context) (repl models.Repl
 		"public-key-file":  publicKeyFile,
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	if ct.User.IsOwnerOfGroup(ct.FormattedArguments["group"]) {
 		str, _, errPK := ct.Group.DisplayPubKeys("egress")

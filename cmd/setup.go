@@ -46,7 +46,7 @@ func (c *Setup) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *Setup) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Setup) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	log.Printf("[SETUP     ] Gonna setup sb on this host")
 

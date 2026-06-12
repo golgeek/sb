@@ -43,7 +43,7 @@ func (c *Backup) Checks(ct *commands.Context) (err error) {
 	return
 }
 
-func (c *Backup) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *Backup) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	hostname, err := helpers.GetHostname()
 	if err != nil {

@@ -34,7 +34,7 @@ func (c *SelfListSessions) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfListSessions) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfListSessions) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	lastSessions, err := ct.User.GetLastSSHSessions(20)
 	if err != nil {

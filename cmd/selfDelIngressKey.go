@@ -43,7 +43,7 @@ func (c *SelfDelIngressKey) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfDelIngressKey) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfDelIngressKey) Execute(ct *commands.Context) (res commands.Result, err error) {
 
 	str, keys, err := ct.User.DisplayPubKeys("ingress")
 	if err != nil {
@@ -87,12 +87,12 @@ func (c *SelfDelIngressKey) Execute(ct *commands.Context) (repl models.Replicati
 		}
 	}
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account":    ct.User.User.Username,
 		"public-key": publicKey,
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	// We finally display the account's keys (output of selfListIngressKeys)
 	str, _, _ = ct.User.DisplayPubKeys("ingress")

@@ -60,9 +60,9 @@ func (c *SelfAddAccess) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *SelfAddAccess) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *SelfAddAccess) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"account": ct.User.User.Username,
 		"host":    ct.FormattedArguments["host"],
 		"user":    ct.FormattedArguments["user"],
@@ -71,7 +71,7 @@ func (c *SelfAddAccess) Execute(ct *commands.Context) (repl models.ReplicationDa
 		"comment": fmt.Sprintf("Access granted by %s on %s", ct.User.User.Username, time.Now().Format(time.RFC3339)),
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }

@@ -2,6 +2,7 @@ package commands
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	osuser "os/user"
 	"testing"
@@ -17,9 +18,8 @@ import (
 // adapter drives it.
 type fakeCommand struct {
 	checksErr error
-	execRepl  models.ReplicationData
-	execCmd   error // remote/command exit error returned by Execute
-	execErr   error // internal sb error returned by Execute
+	execRes   Result // Result returned by Execute (replication data + remote exit)
+	execErr   error  // internal sb error returned by Execute
 
 	checksCalled bool
 	execCalled   bool
@@ -32,10 +32,10 @@ func (f *fakeCommand) Checks(ct *Context) error {
 	return f.checksErr
 }
 
-func (f *fakeCommand) Execute(ct *Context) (models.ReplicationData, error, error) {
+func (f *fakeCommand) Execute(ct *Context) (Result, error) {
 	f.execCalled = true
 	f.gotCt = ct
-	return f.execRepl, f.execCmd, f.execErr
+	return f.execRes, f.execErr
 }
 
 func (f *fakeCommand) PostExecute(repl models.ReplicationData) error { return nil }
@@ -215,8 +215,8 @@ func TestAdapterArgumentHandling(t *testing.T) {
 
 // TestAdapterPipeline asserts the ordering and error-propagation contract of
 // the PersistentPreRunE/RunE pair: authorization gates Checks, Checks gates
-// Execute, the outbox handle is acquired before Execute, and the two Execute
-// errors keep their distinct roles.
+// Execute, the outbox handle is acquired before Execute, and the internal
+// error and the Result's remote exit keep their distinct roles.
 func TestAdapterPipeline(t *testing.T) {
 
 	registryWith := func(fake *fakeCommand, rights models.Right) *Registry {
@@ -268,16 +268,37 @@ func TestAdapterPipeline(t *testing.T) {
 		require.False(t, fake.execCalled, "an action whose outbox entry cannot be persisted must not run")
 	})
 
-	t.Run("internal error wins over the remote exit error", func(t *testing.T) {
-		fake := &fakeCommand{execErr: fmt.Errorf("internal"), execCmd: fmt.Errorf("remote exit 1")}
+	t.Run("internal error wins over the remote exit", func(t *testing.T) {
+		fake := &fakeCommand{
+			execErr: fmt.Errorf("internal"),
+			execRes: Result{RemoteExit: &ExitError{Code: 1, Err: fmt.Errorf("remote exit 1")}},
+		}
 		_, err := execute(registryWith(fake, models.Public), []string{"thing", "do"}, hermeticDeps()...)
 		require.EqualError(t, err, "internal")
+		var exitErr *ExitError
+		require.False(t, errors.As(err, &exitErr), "an internal failure must not surface as a remote exit")
 	})
 
-	t.Run("remote exit error propagates when there is no internal error", func(t *testing.T) {
-		fake := &fakeCommand{execCmd: fmt.Errorf("remote exit 1")}
+	t.Run("remote exit propagates as a typed *ExitError when there is no internal error", func(t *testing.T) {
+		fake := &fakeCommand{
+			execRes: Result{RemoteExit: &ExitError{Code: 3, Err: fmt.Errorf("remote exit 3")}},
+		}
 		_, err := execute(registryWith(fake, models.Public), []string{"thing", "do"}, hermeticDeps()...)
-		require.EqualError(t, err, "remote exit 1")
+		require.EqualError(t, err, "remote exit 3")
+		// The typed exit must survive the adapter so the top-level caller can
+		// recover the distant command's exit code with errors.As.
+		var exitErr *ExitError
+		require.ErrorAs(t, err, &exitErr)
+		require.Equal(t, 3, exitErr.Code)
+	})
+
+	t.Run("a successful execution returns a nil error, not a typed nil", func(t *testing.T) {
+		// The adapter must not return Result.RemoteExit unconditionally: a nil
+		// *ExitError stored in the error interface would be non-nil and turn
+		// every success into a failure.
+		fake := &fakeCommand{}
+		_, err := execute(registryWith(fake, models.Public), []string{"thing", "do"}, hermeticDeps()...)
+		require.NoError(t, err)
 	})
 
 	t.Run("group argument resolves before authorization", func(t *testing.T) {
@@ -318,7 +339,7 @@ func TestAdapterReplicationOutbox(t *testing.T) {
 	db, err := models.GetReplicationGormDB(":memory:")
 	require.NoError(t, err)
 
-	fake := &fakeCommand{execRepl: models.ReplicationData{"account": "alice"}}
+	fake := &fakeCommand{execRes: Result{Repl: models.ReplicationData{"account": "alice"}}}
 	r := NewRegistry()
 	spec := specStub("thing do", []string{"thingDo"}, false)
 	spec.New = func() Command { return fake }

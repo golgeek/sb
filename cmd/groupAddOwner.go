@@ -51,14 +51,14 @@ func (c *GroupAddOwner) Checks(ct *commands.Context) error {
 }
 
 // Execute executes the command
-func (c *GroupAddOwner) Execute(ct *commands.Context) (repl models.ReplicationData, cmdError error, err error) {
+func (c *GroupAddOwner) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	repl = models.ReplicationData{
+	res.Repl = models.ReplicationData{
 		"group":   ct.FormattedArguments["group"],
 		"account": ct.FormattedArguments["account"],
 	}
 
-	err = c.Replicate(repl)
+	err = c.Replicate(res.Repl)
 
 	return
 }
