@@ -118,8 +118,10 @@ Host supported formats:
   - full formats:
     - user@example.com:22
     - user@127.0.0.1:22
+    - user@[2001:db8::1]:22 (IPv6 with a port requires brackets)
   - short formats*:
     - user@example.com : port will be retrieved from granted access
+    - user@2001:db8::1 : port will be retrieved from granted access
     - example.com:22   : user will be retrieved from granted access
     - example.com      : port and user will be retrieved from granted access
   - alias*:
