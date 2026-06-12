@@ -472,6 +472,54 @@ func TestIsIPv4(t *testing.T) {
 
 }
 
+// TestUniqueAccessesForHost pins the dedup behavior the egress commands
+// (ttyrec, scp) rely on to decide whether the user's input names exactly one
+// connection target.
+func TestUniqueAccessesForHost(t *testing.T) {
+
+	t.Run("duplicates collapse, order is preserved", func(t *testing.T) {
+		a1 := &Access{Host: "h1", User: "root", Port: 22}
+		a2 := &Access{Host: "h2", User: "root", Port: 22}
+		dup := &Access{Host: "h1", User: "root", Port: 22}
+
+		unique := UniqueAccessesForHost([]*Access{a1, a2, dup}, "typed.example.com")
+		require.Equal(t, []*Access{a1, a2}, unique)
+	})
+
+	t.Run("same host with different user or port stays distinct", func(t *testing.T) {
+		a1 := &Access{Host: "h1", User: "root", Port: 22}
+		a2 := &Access{Host: "h1", User: "app", Port: 22}
+		a3 := &Access{Host: "h1", User: "root", Port: 2222}
+
+		unique := UniqueAccessesForHost([]*Access{a1, a2, a3}, "h1")
+		require.Len(t, unique, 3)
+	})
+
+	t.Run("wide-prefix accesses take the typed host", func(t *testing.T) {
+		// An access granted on a prefix is stored without a host; the typed
+		// host completes it, and that completion participates in dedup: two
+		// prefix grants for the same user/port collapse once completed.
+		p1 := &Access{Host: "", User: "root", Port: 22}
+		p2 := &Access{Host: "", User: "root", Port: 22}
+
+		unique := UniqueAccessesForHost([]*Access{p1, p2}, "10.0.0.7")
+		require.Len(t, unique, 1)
+		require.Equal(t, "10.0.0.7", unique[0].Host, "the typed host must complete the wide-prefix access")
+	})
+
+	t.Run("completed prefix access deduplicates against an explicit grant", func(t *testing.T) {
+		explicit := &Access{Host: "10.0.0.7", User: "root", Port: 22}
+		prefix := &Access{Host: "", User: "root", Port: 22}
+
+		unique := UniqueAccessesForHost([]*Access{explicit, prefix}, "10.0.0.7")
+		require.Equal(t, []*Access{explicit}, unique)
+	})
+
+	t.Run("empty input yields an empty result", func(t *testing.T) {
+		require.Empty(t, UniqueAccessesForHost(nil, "h1"))
+	})
+}
+
 type testBuildSBAccessFromUserInput struct {
 	e testSplitUserInputInputData
 	o testBuildSBAccessOutputData
