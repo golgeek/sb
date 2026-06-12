@@ -278,6 +278,45 @@ func (ba *Access) Save(db *gorm.DB) (err error) {
 	return db.Save(ba).Error
 }
 
+// UniqueAccessesForHost deduplicates the accesses matched for a connection
+// target, returning them in their original order with duplicates (same
+// host/user/port triple, per Equals) removed. Accesses granted on a wide
+// prefix are stored without a Host; those are completed in place with the
+// host the user actually typed, both so deduplication compares real targets
+// and so the caller connects to the requested host rather than an empty one.
+//
+// The egress commands (ttyrec, scp) call this to decide whether the user's
+// input resolves to exactly one connection target; what to do with several
+// remains the caller's policy (ttyrec prompts interactively, scp refuses —
+// its wrapper has no terminal to prompt on).
+func UniqueAccessesForHost(accesses []*Access, host string) []*Access {
+
+	uniqueAccesses := make([]*Access, 0, len(accesses))
+
+	for _, access := range accesses {
+
+		// A wide-prefix access carries no host of its own: the target is
+		// whatever host the user typed (which BuildSBAccess already matched
+		// against the prefix).
+		if access.Host == "" {
+			access.Host = host
+		}
+
+		unique := true
+		for _, ua := range uniqueAccesses {
+			if access.Equals(ua) {
+				unique = false
+				break
+			}
+		}
+		if unique {
+			uniqueAccesses = append(uniqueAccesses, access)
+		}
+	}
+
+	return uniqueAccesses
+}
+
 // String returns a pretty print display of the access
 func (ba *Access) String() string {
 	green := color.New(color.FgGreen).SprintFunc()

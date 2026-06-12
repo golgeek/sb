@@ -419,29 +419,14 @@ func (c *Ttyrec) displayMatchingGrants(sources []*models.Source) {
 	fmt.Printf("Access to this host is granted by:\n%s\n", strings.Join(sourcesDisplay, "\n"))
 }
 
+// getUniqueAccessFromAvailableAccesses resolves the user's input to exactly
+// one connection target. The deduplication itself lives in
+// models.UniqueAccessesForHost; the ttyrec-specific policy is that an
+// ambiguous target prompts the user interactively (unlike scp, which has no
+// terminal to prompt on and refuses).
 func (c *Ttyrec) getUniqueAccessFromAvailableAccesses(accesses []*models.Access, host string) (a *models.Access, err error) {
 
-	// We initialize with the first access returned
-	uniqueAccesses := make([]*models.Access, 0)
-
-	for i := 0; i < len(accesses); i++ {
-		unique := true
-
-		// In case of a wide prefix stored access, we replace the Host by the user input
-		if accesses[i].Host == "" {
-			accesses[i].Host = host
-		}
-
-		for _, ua := range uniqueAccesses {
-			if accesses[i].Equals(ua) {
-				unique = false
-			}
-		}
-
-		if unique {
-			uniqueAccesses = append(uniqueAccesses, accesses[i])
-		}
-	}
+	uniqueAccesses := models.UniqueAccessesForHost(accesses, host)
 
 	if len(uniqueAccesses) == 1 {
 		return uniqueAccesses[0], nil
