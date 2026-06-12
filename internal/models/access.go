@@ -318,38 +318,81 @@ func isIPv4(ip string) bool {
 	return strings.Count(ip, ":") < 2
 }
 
+// splitUserInput parses a user-typed access target of the form
+// [user@]host[:port], where host may be a hostname, an access alias, an IPv4
+// address, or an IPv6 address. IPv6 literals follow the standard bracket
+// convention: combining an IPv6 address with a port requires brackets
+// ("user@[2001:db8::1]:22" — net.SplitHostPort semantics), while a bare,
+// unbracketed IPv6 address (two or more colons) is accepted as a host
+// without a port. Brackets without a port ("user@[::1]") are also accepted.
+//
+// When strictHostCheck is set, the user@ part is mandatory and its absence is
+// an error; otherwise an input without @ is treated as a host or alias. port
+// is 0 when the input does not carry one. err is non-nil for a non-numeric
+// port, an unclosed bracket, or a missing @ under strictHostCheck.
 func splitUserInput(userInput string, strictHostCheck bool) (user, host string, port int, err error) {
 
-	// We start by determining if we have a specified port
-	hostPortParts := strings.Split(userInput, ":")
-	if len(hostPortParts) > 1 {
-		portInt, errConv := strconv.Atoi(hostPortParts[1])
-		if errConv != nil {
-			err = fmt.Errorf("port is not a valid integer")
-			return
-		}
-		port = portInt
-	}
+	hostPort := userInput
 
-	// Then we concentrate on the host part (which could be an alias to a host, by the way)
-	userHostParts := strings.Split(hostPortParts[0], "@")
-
-	// No @ present in the user input, we consider input to be an alias of a host
-	if len(userHostParts) < 2 {
-
-		// Unless we have a strictHostCheck flag
-		if strictHostCheck {
-			err = fmt.Errorf("unable to parse access from user input %s: no @ separator found", userInput)
-			return
-		}
-
-		// We set the alias in the host field, and we won't have more info, so let's return
-		host = hostPortParts[0]
+	// Split off the user part first, so a user@ prefix can never be confused
+	// with the colons of an IPv6 literal in the host part.
+	if i := strings.Index(hostPort, "@"); i >= 0 {
+		user = hostPort[:i]
+		hostPort = hostPort[i+1:]
+	} else if strictHostCheck {
+		err = fmt.Errorf("unable to parse access from user input %s: no @ separator found", userInput)
 		return
 	}
 
-	user = userHostParts[0]
-	host = userHostParts[1]
+	switch {
+	case strings.HasPrefix(hostPort, "["):
 
-	return
+		// Bracketed host: "[addr]:port" or "[addr]" alone. net.SplitHostPort
+		// handles the former (and validates the bracket structure); a
+		// bracketed host without a port is unwrapped by hand since
+		// SplitHostPort treats a missing port as an error.
+		if h, p, splitErr := net.SplitHostPort(hostPort); splitErr == nil {
+			host = h
+			port, err = parsePort(p)
+			return
+		}
+		if strings.HasSuffix(hostPort, "]") {
+			host = strings.TrimPrefix(strings.TrimSuffix(hostPort, "]"), "[")
+			return
+		}
+		err = fmt.Errorf("unable to parse access from user input %s: unclosed bracket in host", userInput)
+		return
+
+	case strings.Count(hostPort, ":") >= 2:
+
+		// Two or more colons and no brackets: a bare IPv6 literal. It cannot
+		// carry a port (that requires the bracketed form above), so the whole
+		// token is the host.
+		host = hostPort
+		return
+
+	case strings.Contains(hostPort, ":"):
+
+		// Exactly one colon: the historical "host:port" form.
+		parts := strings.SplitN(hostPort, ":", 2)
+		host = parts[0]
+		port, err = parsePort(parts[1])
+		return
+
+	default:
+
+		// No port; the whole token is a hostname or an alias.
+		host = hostPort
+		return
+	}
+}
+
+// parsePort converts a user-typed port to an int, with the historical error
+// message on non-numeric input.
+func parsePort(p string) (port int, err error) {
+	port, errConv := strconv.Atoi(p)
+	if errConv != nil {
+		return 0, fmt.Errorf("port is not a valid integer")
+	}
+	return port, nil
 }

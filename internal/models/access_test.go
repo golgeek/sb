@@ -303,6 +303,61 @@ func TestSplitUserInputStrict(t *testing.T) {
 				err: fmt.Errorf("port is not a valid integer"),
 			},
 		},
+		// IPv6: a port requires the standard bracketed form.
+		{
+			e: testSplitUserInputInputData{
+				access: "root@[2001:db8::1]:2222", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				host: "2001:db8::1", user: "root", port: 2222,
+			},
+		},
+		// IPv6: brackets without a port are accepted too.
+		{
+			e: testSplitUserInputInputData{
+				access: "root@[::1]", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				host: "::1", user: "root", port: 0,
+			},
+		},
+		// IPv6: a bare literal (no brackets) is a host without a port; its
+		// colons must not be parsed as a port separator.
+		{
+			e: testSplitUserInputInputData{
+				access: "root@::1", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				host: "::1", user: "root", port: 0,
+			},
+		},
+		{
+			e: testSplitUserInputInputData{
+				access: "root@2001:db8::1", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				host: "2001:db8::1", user: "root", port: 0,
+			},
+		},
+		// IPv6: the historical non-numeric-port error is preserved in the
+		// bracketed form.
+		{
+			e: testSplitUserInputInputData{
+				access: "root@[::1]:port", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				err: fmt.Errorf("port is not a valid integer"),
+			},
+		},
+		// IPv6: an unclosed bracket is a parse error, not a silent guess.
+		{
+			e: testSplitUserInputInputData{
+				access: "root@[::1:22", strictHostCheck: true,
+			},
+			o: testSplitUserInputOutputData{
+				err: fmt.Errorf("unable to parse access from user input root@[::1:22: unclosed bracket in host"),
+			},
+		},
 	}
 
 	for _, testValue := range testValues {
@@ -363,6 +418,32 @@ func TestSplitUserInputAlias(t *testing.T) {
 			},
 			o: testSplitUserInputOutputData{
 				host: "test", user: "", port: 22,
+			},
+		},
+		// IPv6 without a user part: bracketed with a port, and bare literals
+		// of both short and full forms.
+		{
+			e: testSplitUserInputInputData{
+				access: "[::1]:22", strictHostCheck: false,
+			},
+			o: testSplitUserInputOutputData{
+				host: "::1", user: "", port: 22,
+			},
+		},
+		{
+			e: testSplitUserInputInputData{
+				access: "::1", strictHostCheck: false,
+			},
+			o: testSplitUserInputOutputData{
+				host: "::1", user: "", port: 0,
+			},
+		},
+		{
+			e: testSplitUserInputInputData{
+				access: "2001:0db8:85a3:0000:0000:8a2e:0370:7334", strictHostCheck: false,
+			},
+			o: testSplitUserInputOutputData{
+				host: "2001:0db8:85a3:0000:0000:8a2e:0370:7334", user: "", port: 0,
 			},
 		},
 	}
