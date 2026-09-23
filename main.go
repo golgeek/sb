@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/golgeek/sb/cmd"
@@ -56,15 +55,7 @@ func main() {
 	// We have two special cases: sb was called with -i option (we switch to interactive mode) or -d (we switch to daemon mode)
 	if _, ok := sbArguments["interactive"]; ok {
 
-		// We'll need to know if we're running mosh or ssh, here
-		args := []string{
-			"interactive",
-			"--client", client,
-			"--client-arguments", strings.Join(clientArguments, ","),
-		}
-
-		// We are on a trusted command, we give it all the remaining args
-		err := commands.BuildAndExecuteSBCommand(log, currentUser, args...)
+		err := commands.BuildAndExecuteSessionCommand(log, currentUser, "interactive", client, clientArguments, "", nil)
 
 		TerminateSession(log, err)
 
@@ -122,20 +113,9 @@ func main() {
 			TerminateSession(log, commands.WithCommandSuggestion(types.ErrUnknownCommand, arguments))
 		}
 
-		// We'll need to know if we're running mosh or ssh, here
-		args := []string{
-			"--client", client,
-			"--client-arguments", strings.Join(clientArguments, ","),
-			"--access", arguments[0],
-		}
-		if len(arguments) > 1 {
-			args = append(args, arguments[1:]...)
-		}
-
 		// We have an alias or a host, so we want to SSH connect to it while ttyrec-ing. Let's use our ttyrec command for that!
 		typed := arguments
-		arguments = append([]string{config.GetSSHCommand()}, args...)
-		err = commands.BuildAndExecuteSBCommand(log, currentUser, arguments...)
+		err = commands.BuildAndExecuteSessionCommand(log, currentUser, config.GetSSHCommand(), client, clientArguments, arguments[0], arguments[1:])
 
 		// The target had a valid access shape but matched none of the user's
 		// grants — it may well have been a mistyped command name instead

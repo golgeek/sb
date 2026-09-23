@@ -55,6 +55,9 @@ func ParseArguments(clArgs []string) (c string, ca []string, ba map[string]bool,
 			return
 		}
 	}
+	if len(clArgs) == 0 {
+		return
+	}
 
 	// We now have two different cases:
 	// - just a basic slice of arguments (in case of direct call and SSH)
@@ -102,10 +105,10 @@ func ParseArguments(clArgs []string) (c string, ca []string, ba map[string]bool,
 		lang := moshFlagSet.String("l", "", "Locale-related environment variable to try as part of a fallback environment, if the startup environment does not specify a character set of UTF-8.")
 		moshFlagSet.String("p", "", "UDP port number or port-range to bind.  -p 0 will let the operating system pick an available UDP port.")
 
-		// Let's parse our mosh-server arguments. We intentionally ignore the parse
-		// error and proceed best-effort: undeclared mosh flags are expected here and
-		// must not abort parsing (the remaining args are recovered via Args below).
-		_ = moshFlagSet.Parse(clArgs)
+		// Malformed transport options must not select a different dispatch path.
+		if err = moshFlagSet.Parse(clArgs); err != nil {
+			return
+		}
 
 		// And keep everything that was trailing for the next step
 		clArgs = moshFlagSet.Args()
@@ -127,6 +130,9 @@ func ParseArguments(clArgs []string) (c string, ca []string, ba map[string]bool,
 		}
 		if *lang != "" {
 			ca = append(ca, "-l", *lang)
+		}
+		if err = ValidateMOSHArguments(ca); err != nil {
+			return
 		}
 	}
 

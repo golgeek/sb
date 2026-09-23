@@ -57,13 +57,6 @@ func init() {
 				Required:    true,
 				Description: "The host to access",
 			},
-			"client": {
-				Required:    true,
-				Description: "The client to use SSH or MOSH",
-			},
-			"client-arguments": {
-				Required: false,
-			},
 		},
 		Trusted: true,
 		New:     func() commands.Command { return new(Ttyrec) },
@@ -109,8 +102,8 @@ func (c *Ttyrec) Execute(ct *commands.Context) (res commands.Result, err error) 
 	}
 
 	// In case client is mosh, mosh-server will launch ttyrec that will launch ssh
-	if ct.FormattedArguments["client"] == "mosh" {
-		moshCommand, errMosh := c.buildMOSHCommand(ct.FormattedArguments["client-arguments"])
+	if ct.Client == "mosh" {
+		moshCommand, errMosh := c.buildMOSHCommand(ct.ClientArguments)
 		if errMosh != nil {
 			err = errMosh
 			return
@@ -320,22 +313,8 @@ func (c *Ttyrec) askForAccessToUse(availableAccesses []*models.Access) (a *model
 	return
 }
 
-func (c *Ttyrec) buildMOSHCommand(clientArguments string) (cmd []string, err error) {
-
-	moshPath, err := exec.LookPath("mosh-server")
-	if err != nil {
-		fmt.Printf("Unable to find ssh on system: %s\n", err)
-		return
-	}
-
-	moshArguments := strings.Split(clientArguments, ",")
-	moshArguments = append(moshArguments, "-p", config.GetMOSHPortsRange(), "--")
-
-	cmd = make([]string, 0, 2+len(moshArguments))
-	cmd = append(cmd, moshPath, "new")
-	cmd = append(cmd, moshArguments...)
-
-	return
+func (c *Ttyrec) buildMOSHCommand(clientArguments []string) (cmd []string, err error) {
+	return helpers.BuildMOSHCommand(clientArguments, config.GetMOSHPortsRange())
 }
 
 func (c *Ttyrec) buildSSHCommand(access *models.Access, keyfilePathes []string, rawArguments []string, knownHostsFile, strictHostKeyChecking string) (cmd []string, err error) {

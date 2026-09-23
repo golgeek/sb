@@ -46,12 +46,13 @@ type CommandSpec struct {
 	Args map[string]Argument
 
 	// Trusted marks a command that is dispatched only by the sb front-end
-	// with trusted arguments (interactive, ttyrec, daemon) and must never be
+	// (interactive, ttyrec, daemon) and must never be
 	// invocable by a user through the CLI tree or the interactive REPL.
 	// Trusted specs are resolvable through the flat registry (the front-end
 	// and the replication-apply path need them) but are excluded from
 	// BuildRootCommand — and therefore from help, completion, and
 	// suggestions.
+	// This is a visibility constraint, not a guarantee that input is trusted.
 	Trusted bool
 
 	// New constructs a fresh Command instance. A new instance is created for
