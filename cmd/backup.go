@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
 
-	"github.com/golgeek/sb/internal/archive"
 	"github.com/golgeek/sb/internal/commands"
 	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
@@ -36,14 +34,22 @@ func init() {
 
 func (c *Backup) Checks(ct *commands.Context) (err error) {
 
-	if _, errStat := os.Stat(ct.FormattedArguments["backup-directory"]); err != nil && os.IsNotExist(err) {
-		return fmt.Errorf("backup-directory does not exist: %w", errStat)
+	info, err := os.Stat(ct.FormattedArguments["backup-directory"])
+	if err != nil {
+		return fmt.Errorf("unable to access backup-directory: %w", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("backup-directory must be a directory")
 	}
 
-	return
+	return validateBackupKey(config.GetEncryptionKey())
 }
 
 func (c *Backup) Execute(ct *commands.Context) (res commands.Result, err error) {
+
+	if err = c.Checks(ct); err != nil {
+		return
+	}
 
 	hostname, err := helpers.GetHostname()
 	if err != nil {
@@ -86,22 +92,8 @@ func (c *Backup) Execute(ct *commands.Context) (res commands.Result, err error) 
 
 	}
 
-	err = c.createArchive(fmt.Sprintf("%s.tar.gz", filename), pathsToArchive)
+	err = createEncryptedBackup(filename+".bin", config.GetEncryptionKey(), pathsToArchive)
 	if err != nil {
-		return
-	}
-
-	// Encrypting it
-	err = helpers.EncryptFile(fmt.Sprintf("%s.tar.gz", filename), fmt.Sprintf("%s.bin", filename), config.GetEncryptionKey())
-	if err != nil {
-		err = fmt.Errorf("unable to encrypt the backup file: %w", err)
-		return
-	}
-
-	// Deleting the temporary un-encrypted backup file
-	err = os.Remove(fmt.Sprintf("%s.tar.gz", filename))
-	if err != nil {
-		err = fmt.Errorf("unable to remove the temporary un-encrypted backup file: %w", err)
 		return
 	}
 
@@ -117,23 +109,4 @@ func (c *Backup) PostExecute(repl models.ReplicationData) (err error) {
 
 func (c *Backup) Replicate(repl models.ReplicationData) (err error) {
 	return
-}
-
-func (c *Backup) createArchive(filename string, pathsToArchive map[string]string) error {
-
-	// Create the backup file
-	out, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("unable to create backup file on disk: %w", err)
-	}
-	defer out.Close()
-
-	// Delegate the actual gzip-tar archiving to the archive seam, which keeps
-	// this command independent of the underlying archiving library.
-	err = archive.CreateArchive(context.Background(), out, pathsToArchive)
-	if err != nil {
-		return fmt.Errorf("unable to create archive file: %w", err)
-	}
-
-	return nil
 }
