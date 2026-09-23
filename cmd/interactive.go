@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/golgeek/sb/internal/commands"
@@ -33,15 +32,7 @@ func init() {
 			Usage:       "interactive",
 			Description: "launch sb in interactive mode",
 		},
-		Args: map[string]commands.Argument{
-			"client": {
-				Required:    true,
-				Description: "The client to use SSH or MOSH",
-			},
-			"client-arguments": {
-				Required: false,
-			},
-		},
+		Args:    map[string]commands.Argument{},
 		Trusted: true,
 		New:     func() commands.Command { return new(Interactive) },
 	})
@@ -59,7 +50,7 @@ func (c *Interactive) Execute(ct *commands.Context) (res commands.Result, err er
 	c.Context = ct
 
 	// Special case, we need to launch a mosh-server that will be calling ourselves
-	if ct.FormattedArguments["client"] == "mosh" {
+	if ct.Client == "mosh" {
 
 		fmt.Printf("Launched interactive command with mosh client...\n")
 
@@ -122,21 +113,7 @@ func (c *Interactive) Replicate(repl models.ReplicationData) (err error) {
 }
 
 func (c *Interactive) buildMOSHCommand(ct *commands.Context) (cmd []string, err error) {
-
-	moshPath, err := exec.LookPath("mosh-server")
-	if err != nil {
-		fmt.Printf("Unable to find ssh on system: %s\n", err)
-		return
-	}
-
-	moshArguments := strings.Split(ct.FormattedArguments["client-arguments"], ",")
-	moshArguments = append(moshArguments, "-p", config.GetMOSHPortsRange(), "--")
-
-	cmd = make([]string, 0, 2+len(moshArguments))
-	cmd = append(cmd, moshPath, "new")
-	cmd = append(cmd, moshArguments...)
-
-	return
+	return helpers.BuildMOSHCommand(ct.ClientArguments, config.GetMOSHPortsRange())
 }
 
 func (c *Interactive) promptPrefix() string {

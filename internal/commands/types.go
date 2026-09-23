@@ -82,6 +82,9 @@ type Context struct {
 	BA                 *models.Access
 	FormattedArguments map[string]string
 	RawArguments       []string
+	// Session fields are supplied by the front end, never parsed from command flags.
+	Client          string
+	ClientArguments []string
 }
 
 // Argument describes the basic properties of a sb command argument

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/golgeek/sb/internal/config"
+	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
 )
 
@@ -33,16 +34,63 @@ func IsReplicableCommand(command string) bool {
 
 // BuildAndExecuteSBCommand builds the command through the trusted flat
 // dispatch path and executes it. It is used by the front-end for the trusted
-// commands (interactive, ttyrec, daemon) whose arguments it assembles itself,
-// and by the interactive REPL's executor. The user-facing CLI goes through
-// the cobra tree instead (BuildRootCommand); both paths enforce the same
-// centralized authorization gate.
+// daemon command. Sessions use BuildAndExecuteSessionCommand to keep transport
+// options separate from remote argv. The user-facing CLI and REPL go through
+// the cobra tree instead; both paths enforce the same authorization gate.
 func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string) (err error) {
 
 	bc, ct, err := BuildSBCommand(log, user, args...)
 	if err != nil {
 		return
 	}
+	return executeSBCommand(bc, ct, args[0])
+}
+
+// BuildSessionCommand keeps transport options separate from caller-controlled
+// remote arguments. Only the front end selects the local session implementation.
+func BuildSessionCommand(log *models.Log, user *models.User, command, client string, clientArgs []string, target string, remote []string) (Command, *Context, error) {
+	if command != "interactive" && command != "ttyrec" {
+		return nil, nil, fmt.Errorf("invalid session command %q", command)
+	}
+	if client != "ssh" && client != "mosh" {
+		return nil, nil, fmt.Errorf("invalid session client %q", client)
+	}
+	if client == "mosh" {
+		if err := helpers.ValidateMOSHArguments(clientArgs); err != nil {
+			return nil, nil, err
+		}
+	} else if len(clientArgs) != 0 {
+		return nil, nil, fmt.Errorf("SSH session cannot have mosh arguments")
+	}
+	args := []string{command}
+	if command == "ttyrec" {
+		args = append(args, "--access", target)
+	}
+	// The optional user separator belongs to sb, not the remote command.
+	if len(remote) > 0 && remote[0] == "--" {
+		remote = remote[1:]
+	}
+	args = append(args, "--")
+	args = append(args, remote...)
+	bc, ct, err := BuildSBCommand(log, user, args...)
+	if err != nil {
+		return nil, ct, err
+	}
+	ct.Client = client
+	ct.ClientArguments = append([]string(nil), clientArgs...)
+	return bc, ct, nil
+}
+
+// BuildAndExecuteSessionCommand dispatches a session without serializing its argv.
+func BuildAndExecuteSessionCommand(log *models.Log, user *models.User, command, client string, clientArgs []string, target string, remote []string) error {
+	bc, ct, err := BuildSessionCommand(log, user, command, client, clientArgs, target, remote)
+	if err != nil {
+		return err
+	}
+	return executeSBCommand(bc, ct, command)
+}
+
+func executeSBCommand(bc Command, ct *Context, action string) (err error) {
 
 	// If replication is enabled, let's start by getting a handler on the replication database,
 	// as it's crucial we check we can get it to push the replication data after the action
@@ -60,11 +108,11 @@ func BuildAndExecuteSBCommand(log *models.Log, user *models.User, args ...string
 	// If replication is enabled, let's save the data to the replication database
 	// This process also handles the PostExecute() part of the command
 	if (config.GetReplicationQueueConfig().Enabled || config.GetTTYRecsOffloadingConfig().Enabled) &&
-		IsReplicableCommand(args[0]) {
+		IsReplicableCommand(action) {
 
 		var repl *models.Replication
 
-		repl, err = models.NewReplicationEntry(args[0], res.Repl)
+		repl, err = models.NewReplicationEntry(action, res.Repl)
 		if err != nil {
 			return
 		}
