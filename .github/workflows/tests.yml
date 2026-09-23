@@ -14,7 +14,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26'
+        go-version-file: go.mod
     # Gate the test run behind a successful build so compilation errors fail
     # fast with a clear signal before the test phase runs.
     - name: Build
@@ -30,7 +30,7 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.26'
+        go-version-file: go.mod
     - name: Run gocyclo
       run: go generate ./...
 

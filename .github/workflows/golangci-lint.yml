@@ -16,7 +16,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.26'
+          go-version-file: go.mod
       # Build golangci-lint from source with the same Go toolchain as the module
       # so its language version matches the go.mod directive. The prebuilt
       # release binaries (and the golangci-lint-action) lag behind new Go
