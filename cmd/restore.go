@@ -54,21 +54,6 @@ func (c *Restore) Checks(ct *commands.Context) (err error) {
 
 func (c *Restore) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	binFilepath := ct.FormattedArguments["file"]
-	tgzFilepath := strings.Replace(ct.FormattedArguments["file"], ".bin", ".tar.gz", 1)
-
-	err = helpers.DecryptFile(binFilepath, tgzFilepath, ct.FormattedArguments["decryption-key"])
-	if err != nil {
-		err = fmt.Errorf("unable to decrypt the backup file: %w", err)
-		return
-	}
-
-	f, err := os.Open(tgzFilepath)
-	if err != nil {
-		err = fmt.Errorf("unable to open decrypted backup file: %w", err)
-		return
-	}
-
 	// Re-materialize every entry from the archive. The handler speaks only in
 	// terms of sb's ArchivedFile type, so this restore logic is independent of
 	// the underlying archiving library.
@@ -113,7 +98,9 @@ func (c *Restore) Execute(ct *commands.Context) (res commands.Result, err error)
 		return nil
 	}
 
-	err = archive.ExtractArchive(context.Background(), f, handler)
+	err = withDecryptedBackup(ct.FormattedArguments["file"], ct.FormattedArguments["decryption-key"], func(reader io.Reader) error {
+		return archive.ExtractArchive(context.Background(), reader, handler)
+	})
 	if err != nil {
 		err = fmt.Errorf("unable to restore backup file: %w", err)
 		return
