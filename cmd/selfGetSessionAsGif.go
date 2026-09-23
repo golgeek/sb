@@ -7,10 +7,8 @@ import (
 	"syscall"
 
 	"github.com/golgeek/sb/internal/commands"
-	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/golgeek/sb/internal/storage"
 
 	"github.com/golgeek/ttyrec2gif"
 	"golang.org/x/term"
@@ -57,41 +55,18 @@ func (c *SelfGetSessionAsGif) Checks(ct *commands.Context) error {
 		return fmt.Errorf("argument speed is not a valid float")
 	}
 
-	return nil
+	return ct.User.AuthorizeRecording(ct.FormattedArguments["session-id"])
 }
 
 // Execute executes the command
 func (c *SelfGetSessionAsGif) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	filename := fmt.Sprintf("%s.ttyrec", ct.FormattedArguments["session-id"])
-	localFilepath := fmt.Sprintf("%s/%s", ct.User.GetTtyrecDirectory(), filename)
-	outputFile := fmt.Sprintf("%s/%s.ttyrec.gif", ct.User.GetTtyrecDirectory(), ct.FormattedArguments["session-id"])
-
-	// If TTYRecs offloading is enabled, we start by getting the ttyrec file from a storage
-	ttyRecsOffloadingConfig := config.GetTTYRecsOffloadingConfig()
-	if ttyRecsOffloadingConfig.Enabled {
-
-		var rs storage.Storage
-		rs, err = storage.GetStorage(ttyRecsOffloadingConfig)
-		if err != nil {
-			return
-		}
-
-		err = rs.GetFromStorage(fmt.Sprintf("%s.bin", filename), fmt.Sprintf("%s.bin", localFilepath))
-		if err != nil {
-			return
-		}
-
-		err = helpers.DecryptFile(fmt.Sprintf("%s.bin", localFilepath), localFilepath, config.GetEncryptionKey())
-		if err != nil {
-			return
-		}
-
-		err = os.Remove(fmt.Sprintf("%s.bin", localFilepath))
-		if err != nil {
-			return
-		}
+	localFilepath, cleanup, err := prepareRecording(ct.User, ct.FormattedArguments["session-id"])
+	if err != nil {
+		return
 	}
+	defer cleanup()
+	outputFile := localFilepath + ".gif"
 
 	_, repeat := ct.FormattedArguments["repeat"]
 	speed, err := strconv.ParseFloat(ct.FormattedArguments["speed"], 64)
@@ -120,18 +95,6 @@ func (c *SelfGetSessionAsGif) Execute(ct *commands.Context) (res commands.Result
 	}
 
 	fmt.Printf("%s", string(content))
-
-	err = os.Remove(outputFile)
-	if err != nil {
-		return
-	}
-
-	if ttyRecsOffloadingConfig.Enabled {
-		err = os.Remove(localFilepath)
-		if err != nil {
-			return
-		}
-	}
 
 	return
 }
