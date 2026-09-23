@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/golgeek/sb/internal/commands"
-	"github.com/golgeek/sb/internal/config"
 	"github.com/golgeek/sb/internal/helpers"
 	"github.com/golgeek/sb/internal/models"
-	"github.com/golgeek/sb/internal/storage"
 	"maze.io/x/ttyrec"
 )
 
@@ -38,41 +36,17 @@ func init() {
 
 // Checks checks whether or not the user can execute this method
 func (c *SelfPlaySession) Checks(ct *commands.Context) error {
-	// No specific rights needed but a sb account
-	return nil
+	return ct.User.AuthorizeRecording(ct.FormattedArguments["session-id"])
 }
 
 // Execute executes the command
 func (c *SelfPlaySession) Execute(ct *commands.Context) (res commands.Result, err error) {
 
-	filename := fmt.Sprintf("%s.ttyrec", ct.FormattedArguments["session-id"])
-	localFilepath := fmt.Sprintf("%s/%s", ct.User.GetTtyrecDirectory(), filename)
-
-	// If TTYRecs offloading is enabled, we start by getting the ttyrec file from a storage
-	ttyRecsOffloadingConfig := config.GetTTYRecsOffloadingConfig()
-	if ttyRecsOffloadingConfig.Enabled {
-
-		var rs storage.Storage
-		rs, err = storage.GetStorage(ttyRecsOffloadingConfig)
-		if err != nil {
-			return
-		}
-
-		err = rs.GetFromStorage(fmt.Sprintf("%s.bin", filename), fmt.Sprintf("%s.bin", localFilepath))
-		if err != nil {
-			return
-		}
-
-		err = helpers.DecryptFile(fmt.Sprintf("%s.bin", localFilepath), localFilepath, config.GetEncryptionKey())
-		if err != nil {
-			return
-		}
-
-		err = os.Remove(fmt.Sprintf("%s.bin", localFilepath))
-		if err != nil {
-			return
-		}
+	localFilepath, cleanup, err := prepareRecording(ct.User, ct.FormattedArguments["session-id"])
+	if err != nil {
+		return
 	}
+	defer cleanup()
 
 	r, err := os.Open(localFilepath)
 	if err != nil {
@@ -80,13 +54,15 @@ func (c *SelfPlaySession) Execute(ct *commands.Context) (res commands.Result, er
 		return
 	}
 
+	defer r.Close()
+
 	d := ttyrec.NewDecoder(r)
 	frames, stop := d.DecodeStream()
 	defer stop()
 
 	var previous *ttyrec.Frame
 	for frame := range frames {
-		if _, errFrame := os.Stdout.Write(frame.Data); err != nil {
+		if _, errFrame := os.Stdout.Write(frame.Data); errFrame != nil {
 			err = fmt.Errorf("error writing frame: %w", errFrame)
 			return
 		}
@@ -95,13 +71,6 @@ func (c *SelfPlaySession) Execute(ct *commands.Context) (res commands.Result, er
 			time.Sleep(time.Duration(float64(d)))
 		}
 		previous = frame
-	}
-
-	if ttyRecsOffloadingConfig.Enabled {
-		err = os.Remove(localFilepath)
-		if err != nil {
-			return
-		}
 	}
 
 	return
