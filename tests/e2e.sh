@@ -213,4 +213,38 @@ if ! sb1u group access add --group redteam --host examplevm --user root --port 2
     exit 1;
 fi
 
+echo "Check that ingress key restrictions survive account creation and replication"
+
+# A separate account avoids changing the capabilities of the permission-test
+# fixtures above. Quote the whole key for the remote command parser, retaining
+# the inner authorized_keys quotes exactly.
+restricted_key="restrict,from=\"*\" $(cat "$(pwd)/demo/assets/ssh-keys/id_ed25519.pub")"
+sb1 account create --username keyopts --public-key "'$restricted_key'"
+docker exec sbdemo_sb1 cat /home/keyopts/.ssh/authorized_keys | grep -Fx -- "$restricted_key"
+
+# Bound the wait on the state we need rather than assuming replication has
+# completed after a fixed sleep.
+key_replicated=false
+for attempt in {1..30}; do
+    if docker exec sbdemo_sb2 cat /home/keyopts/.ssh/authorized_keys 2>/dev/null | grep -Fxq -- "$restricted_key"; then
+        key_replicated=true
+        break
+    fi
+    sleep 1
+done
+if [ "$key_replicated" != true ]; then
+    echo "Restricted ingress key was not replicated intact";
+    docker exec sbdemo_sb2 cat /home/keyopts/.ssh/authorized_keys || true
+    docker exec sbdemo_sb1 tail -80 /var/log/sb.log || true
+    docker exec sbdemo_sb2 tail -80 /var/log/sb.log || true
+    exit 1;
+fi
+
+# restrict disables PTY allocation and agent forwarding; neither is required
+# for this ordinary exec command. Test real OpenSSH acceptance and sb listing.
+# Keep keyboard-interactive enabled for the demo's PAM nullok step (as in
+# e2e-local.sh's readiness probe). Closed stdin prevents interactive prompts.
+ssh -T -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+    -p 22002 keyopts@127.0.0.1 -- self ingress-keys list </dev/null | grep -F -- "$restricted_key"
+
 exit 0;

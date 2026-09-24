@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,6 +12,36 @@ import (
 type publicKeyTestStructure struct {
 	i []byte
 	o bool
+}
+
+func TestPublicKeyOptionsRoundTrip(t *testing.T) {
+	const key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFxu5J1fpfRBHe/2JKreeDGgJlMZji3n97fYm3KJt8Yv"
+	for _, options := range []string{
+		"",
+		"restrict",
+		"no-agent-forwarding,no-port-forwarding,no-pty",
+		`from="10.0.0.0/8,!10.2.0.0/16",restrict`,
+		`restrict,port-forwarding,permitopen="database.internal:5432",permitopen="[::1]:443"`,
+		`command="echo hello, world",environment="LABEL=two words"`,
+		`command="echo \"quoted\"",no-user-rc`,
+		`cert-authority,principals="alice,bob"`,
+	} {
+		t.Run(options, func(t *testing.T) {
+			line := strings.TrimSpace(options+" "+key) + " comment with spaces"
+			pk, err := CheckStringPK(line, nil)
+			require.NoError(t, err)
+			require.Equal(t, line, pk.String())
+			again, err := CheckStringPK(pk.String(), nil)
+			require.NoError(t, err)
+			require.Equal(t, pk.Options, again.Options)
+			require.Equal(t, pk.Comment, again.Comment)
+			require.True(t, pk.Equals(again.PublicKey))
+			// Changing options or the comment must not circumvent duplicate-key
+			// detection or alter the public-key identity used for revocation.
+			_, err = CheckStringPK(key, []PublicKey{*pk})
+			require.ErrorContains(t, err, "key already exists")
+		})
+	}
 }
 
 type publicKeyTestStringStructure struct {

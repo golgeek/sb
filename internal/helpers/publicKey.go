@@ -24,6 +24,13 @@ func (k *PublicKey) String() string {
 	key = key[:len(key)-1]
 	keystr := strings.TrimSuffix(string(key), "\n")
 
+	// ParseAuthorizedKey preserves each option's authorized_keys quoting.
+	// Keep that syntax and order intact: dropping options silently removes
+	// restrictions, and quoting them again would change their meaning.
+	if len(k.Options) > 0 {
+		keystr = strings.Join(k.Options, ",") + " " + keystr
+	}
+
 	// We want to add a comment to the key
 	if k.Comment != "" {
 		// Append the comment
