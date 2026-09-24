@@ -51,6 +51,8 @@ services:
     image: fsouza/fake-gcs-server
     container_name: sbdemo_gcs
     volumes:
+      # Keep demo-bucket/.gitkeep tracked: the emulator creates preloaded
+      # buckets from directories, which Git otherwise omits on fresh clones.
       - ${PWD}/assets/gcs:/data
     command: -backend memory -data /data -scheme http -port 8080 -public-host gcs:8080
     ports:
